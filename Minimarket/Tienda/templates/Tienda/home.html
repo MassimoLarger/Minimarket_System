@@ -1,0 +1,37 @@
+{% extends 'Tienda/base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="text-center">Bienvenido a Minimarket</h3>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                    
+                    {% if user.is_authenticated %}
+                        <h4 class="text-center mb-4">¡Hola, {{ user.username }}!</h4>
+                        <p class="text-center">Has iniciado sesión correctamente en nuestro sistema.</p>
+                        <div class="text-center mt-4">
+                            <a href="{% url 'logout' %}" class="btn btn-danger">Cerrar Sesión</a>
+                        </div>
+                    {% else %}
+                        <p class="text-center">Debes iniciar sesión para acceder al contenido.</p>
+                        <div class="text-center mt-4">
+                            <a href="{% url 'login' %}" class="btn btn-primary">Iniciar Sesión</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
