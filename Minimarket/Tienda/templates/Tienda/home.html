@@ -137,6 +137,14 @@
                         <span class="badge bg-light text-dark">
                             <i class="fas fa-circle text-success me-1"></i> Conectado
                         </span>
+                        {% if user.is_superuser %}
+                        <a href="#" class="btn btn-warning ms-2" data-bs-toggle="modal" data-bs-target="#adminAccessModal">
+                            <i class="fas fa-user-shield me-1"></i> Acceso Admin
+                        </a>
+                        <a href="#" class="btn btn-info ms-2" data-bs-toggle="modal" data-bs-target="#statsAccessModal">
+                            <i class="fas fa-chart-bar me-1"></i> Estadísticas
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="card-body">
@@ -149,8 +157,79 @@
                         {% endfor %}
                     {% endif %}
                     
+                    {% if user.is_superuser %}
+                    <!-- Vista para Superusuario -->
+                    <div class="alert alert-warning mb-4">
+                        <i class="fas fa-user-shield me-2"></i><strong>Modo Administrador:</strong> Tienes acceso completo al sistema.
+                    </div>
+                    
                     <div class="row mt-4">
-                        <!-- Resumen Rápido -->
+                        <!-- Panel de Ventas para Superusuario -->
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100 border-0 shadow-sm">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0"><i class="fas fa-cash-register me-2"></i>Panel de Ventas</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row text-center">
+                                        <div class="col-6">
+                                            <div class="p-3 bg-primary bg-opacity-10 rounded mb-3">
+                                                <h3 class="text-primary"><i class="fas fa-shopping-cart"></i></h3>
+                                                <h5 class="text-primary">Nueva Venta</h5>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="p-3 bg-success bg-opacity-10 rounded mb-3">
+                                                <h3 class="text-success"><i class="fas fa-receipt"></i></h3>
+                                                <h5 class="text-success">Historial</h5>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="p-3 bg-info bg-opacity-10 rounded">
+                                                <h3 class="text-info"><i class="fas fa-tags"></i></h3>
+                                                <h5 class="text-info">Ofertas</h5>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="p-3 bg-warning bg-opacity-10 rounded">
+                                                <h3 class="text-warning"><i class="fas fa-percent"></i></h3>
+                                                <h5 class="text-warning">Descuentos</h5>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Acciones Rápidas para Superusuario -->
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100 border-0 shadow-sm">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0"><i class="fas fa-bolt me-2"></i>Acciones Rápidas</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-grid gap-2">
+                                        <a href="#" class="btn btn-outline-primary text-start">
+                                            <i class="fas fa-boxes me-2"></i> Gestionar Inventario
+                                        </a>
+                                        <a href="#" class="btn btn-outline-success text-start">
+                                            <i class="fas fa-truck me-2"></i> Gestionar Proveedores
+                                        </a>
+                                        <a href="#" class="btn btn-outline-danger text-start">
+                                            <i class="fas fa-exclamation-triangle me-2"></i> Productos Bajos en Stock
+                                        </a>
+                                        <a href="#" class="btn btn-outline-info text-start">
+                                            <i class="fas fa-file-invoice-dollar me-2"></i> Reportes de Ventas
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <!-- Vista para Usuario Normal -->
+                    <div class="row mt-4">
+                        <!-- Resumen Rápido para Usuario Normal -->
                         <div class="col-md-6 mb-4">
                             <div class="card h-100 border-0 shadow-sm">
                                 <div class="card-header bg-light">
@@ -181,7 +260,7 @@
                             </div>
                         </div>
                         
-                        <!-- Acciones Rápidas -->
+                        <!-- Acciones Rápidas para Usuario Normal -->
                         <div class="col-md-6 mb-4">
                             <div class="card h-100 border-0 shadow-sm">
                                 <div class="card-header bg-light">
@@ -203,9 +282,14 @@
                             </div>
                         </div>
                     </div>
+                    {% endif %}
                     
                     <!-- Módulos Principales -->
                     <div class="row mt-2">
+                        {% if user.is_superuser %}
+                        <!-- Módulos para Superusuario -->
+                        {% else %}
+                        <!-- Módulos para Usuario Normal -->
                         <div class="col-md-4 mb-4">
                             <div class="card h-100 border-0 shadow-sm">
                                 <div class="card-body text-center">
@@ -244,6 +328,7 @@
                                 </div>
                             </div>
                         </div>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="card-footer text-end bg-light">
@@ -272,6 +357,38 @@
     {% endif %}
 </div>
 
+    <!-- Modal para acceso a estadísticas -->
+    <div class="modal fade" id="statsAccessModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="fas fa-chart-bar me-2"></i>Acceso a Estadísticas</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">Por razones de seguridad, confirma tu contraseña para acceder a las estadísticas de la tienda:</p>
+                    <form id="statsAccessForm" method="post" action="#">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="statsPassword" class="form-label">Contraseña:</label>
+                            <input type="password" class="form-control" id="statsPassword" name="password" required>
+                            <input type="hidden" name="username" value="{{ user.username }}">
+                        </div>
+                    </form>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>Estás accediendo a información confidencial de ventas y rendimiento.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" form="statsAccessForm" class="btn btn-info">
+                        <i class="fas fa-lock-open me-1"></i> Acceder
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- Modal de advertencia de timeout -->
     <div class="modal fade" id="sessionWarningModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
@@ -288,6 +405,39 @@
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                     <button type="button" class="btn btn-primary" onclick="location.reload()">
                         <i class="fas fa-sync-alt me-1"></i> Continuar trabajando
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de acceso a administración -->
+    <div class="modal fade" id="adminAccessModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title"><i class="fas fa-user-shield me-2"></i>Acceso a Administración</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">Por razones de seguridad, confirma tu contraseña para acceder al panel de administración:</p>
+                    <form id="adminAccessForm" method="post" action="http://127.0.0.1:8000/admin/login/">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="adminPassword" class="form-label">Contraseña:</label>
+                            <input type="password" class="form-control" id="adminPassword" name="password" required>
+                            <input type="hidden" name="username" value="{{ user.username }}">
+                            <input type="hidden" name="next" value="/admin/">
+                        </div>
+                    </form>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>Estás accediendo a una zona restringida del sistema.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" form="adminAccessForm" class="btn btn-warning">
+                        <i class="fas fa-lock-open me-1"></i> Acceder
                     </button>
                 </div>
             </div>
