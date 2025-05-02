@@ -1,0 +1,183 @@
+{% extends 'Tienda/base_layout.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4"><i class="fas fa-truck me-2"></i>Gestionar Proveedores</h2>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i>Listado de Proveedores</h5>
+        </div>
+        <div class="card-body">
+            <!-- Botón para añadir nuevo proveedor (Modal) -->
+            <button class="btn btn-success mb-3" data-bs-toggle="modal" data-bs-target="#nuevoProveedorModal">
+                <i class="fas fa-plus-circle me-2"></i>Añadir Proveedor
+            </button>
+
+            <!-- Tabla de Proveedores -->
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Dirección</th>
+                            <th>Teléfono</th>
+                            <th>Email</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for proveedor in proveedores %}
+                        <tr>
+                            <td>{{ proveedor.nombre_proveedor }}</td>
+                            <td>{{ proveedor.direccion }}</td>
+                            <td>{{ proveedor.telefono }}</td>
+                            <td>{{ proveedor.email|default:"N/A" }}</td>
+                            <td>
+                                <!-- Acciones para proveedores (editar, eliminar) -->
+                                <button class="btn btn-sm btn-warning editar-proveedor" data-id="{{ proveedor.id }}"><i class="fas fa-edit"></i></button>
+                                <button class="btn btn-sm btn-danger eliminar-proveedor" data-id="{{ proveedor.id }}"><i class="fas fa-trash"></i></button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center">No hay proveedores registrados.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end mt-3">
+        <a href="{% url 'home' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Volver al Inicio
+        </a>
+    </div>
+</div>
+
+<!-- Modal para Nuevo/Editar Proveedor -->
+<div class="modal fade" id="nuevoProveedorModal" tabindex="-1" aria-labelledby="nuevoProveedorModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="nuevoProveedorModalLabel"><i class="fas fa-plus-circle me-2"></i>Añadir Nuevo Proveedor</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-proveedor" method="post" action="{% url 'gestionar_proveedores' %}"> <!-- Ajustar la URL de acción -->
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_proveedor" id="proveedor-action">
+                    <input type="hidden" name="proveedor_id" id="proveedor-id">
+                    <div class="mb-3">
+                        <label for="nombre_proveedor" class="form-label">Nombre del Proveedor</label>
+                        <input type="text" class="form-control" id="nombre_proveedor" name="nombre_proveedor" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="direccion" class="form-label">Dirección</label>
+                        <input type="text" class="form-control" id="direccion" name="direccion" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="telefono" class="form-label">Teléfono</label>
+                        <input type="text" class="form-control" id="telefono" name="telefono" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email (Opcional)</label>
+                        <input type="email" class="form-control" id="email" name="email">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="form-proveedor" class="btn btn-success" id="btn-guardar-proveedor">Guardar Proveedor</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const nuevoProveedorModal = new bootstrap.Modal(document.getElementById('nuevoProveedorModal'));
+    const formProveedor = document.getElementById('form-proveedor');
+    const proveedorActionInput = document.getElementById('proveedor-action');
+    const proveedorIdInput = document.getElementById('proveedor-id');
+    const modalTitle = document.getElementById('nuevoProveedorModalLabel');
+    const btnGuardar = document.getElementById('btn-guardar-proveedor');
+
+    // Resetear modal al abrir para añadir
+    document.querySelector('[data-bs-target="#nuevoProveedorModal"]').addEventListener('click', () => {
+        formProveedor.reset();
+        proveedorActionInput.value = 'add_proveedor';
+        proveedorIdInput.value = '';
+        modalTitle.innerHTML = '<i class="fas fa-plus-circle me-2"></i>Añadir Nuevo Proveedor';
+        btnGuardar.textContent = 'Guardar Proveedor';
+        btnGuardar.classList.remove('btn-warning');
+        btnGuardar.classList.add('btn-success');
+    });
+
+    // Preparar modal para editar
+    document.querySelectorAll('.editar-proveedor').forEach(button => {
+        button.addEventListener('click', async (event) => {
+            const proveedorId = event.currentTarget.dataset.id;
+            // Aquí necesitarías una llamada AJAX para obtener los datos del proveedor por ID
+            // fetch(`/api/proveedores/${proveedorId}/`) // Ejemplo de endpoint API
+            // .then(response => response.json())
+            // .then(data => {
+            //     document.getElementById('nombre_proveedor').value = data.nombre_proveedor;
+            //     document.getElementById('direccion').value = data.direccion;
+            //     document.getElementById('telefono').value = data.telefono;
+            //     document.getElementById('email').value = data.email || '';
+            //     proveedorActionInput.value = 'edit_proveedor';
+            //     proveedorIdInput.value = proveedorId;
+            //     modalTitle.innerHTML = '<i class="fas fa-edit me-2"></i>Editar Proveedor';
+            //     btnGuardar.textContent = 'Actualizar Proveedor';
+            //     btnGuardar.classList.remove('btn-success');
+            //     btnGuardar.classList.add('btn-warning');
+            //     nuevoProveedorModal.show();
+            // });
+            
+            // Placeholder hasta implementar AJAX
+            console.log(`Editar proveedor con ID: ${proveedorId}. Se necesita AJAX.`);
+            alert('Funcionalidad de edición pendiente de implementación con AJAX.');
+        });
+    });
+
+    // Confirmación antes de eliminar
+    document.querySelectorAll('.eliminar-proveedor').forEach(button => {
+        button.addEventListener('click', (event) => {
+            const proveedorId = event.currentTarget.dataset.id;
+            if (confirm('¿Estás seguro de que deseas eliminar este proveedor?')) {
+                // Crear un formulario dinámico para enviar la solicitud POST
+                const form = document.createElement('form');
+                form.method = 'post';
+                form.action = '{% url "gestionar_proveedores" %}'; // Ajustar si la URL es diferente
+                
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrfmiddlewaretoken';
+                csrfInput.value = '{{ csrf_token }}'; // Asegúrate que el token CSRF esté disponible
+                form.appendChild(csrfInput);
+
+                const actionInput = document.createElement('input');
+                actionInput.type = 'hidden';
+                actionInput.name = 'action';
+                actionInput.value = 'delete_proveedor';
+                form.appendChild(actionInput);
+
+                const idInput = document.createElement('input');
+                idInput.type = 'hidden';
+                idInput.name = 'proveedor_id';
+                idInput.value = proveedorId;
+                form.appendChild(idInput);
+
+                document.body.appendChild(form);
+                form.submit();
+            }
+        });
+    });
+
+</script>
+{% endblock %}

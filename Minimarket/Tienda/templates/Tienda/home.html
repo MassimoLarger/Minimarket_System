@@ -41,6 +41,14 @@
             transform: translateY(-5px);
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
         }
+        .hover-effect {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .hover-effect:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+        }
         .card-header {
             background-color: var(--primary-color);
             color: white;
@@ -86,7 +94,8 @@
             color: white;
         }
         .user-greeting {
-            background-color: var(--light-color);
+            background-color: #d6eaf8; /* Azul claro */
+            color: #17202a; /* Texto oscuro para contraste */
             padding: 10px 15px;
             border-radius: 5px;
             font-weight: 500;
@@ -133,7 +142,7 @@
             <div class="card mb-4">
                 <div class="card-header bg-primary text-white">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h3 class="mb-0"><i class="fas fa-store-alt me-2"></i>Panel de Control - {{ user.username }}</h3>
+                        <h5 class="mb-0"><i class="fas fa-store-alt me-2"></i>Panel de Control - {{ user.username }}</h5>
                         <span class="badge bg-light text-dark">
                             <i class="fas fa-circle text-success me-1"></i> Conectado
                         </span>
@@ -172,28 +181,36 @@
                                 <div class="card-body">
                                     <div class="row text-center">
                                         <div class="col-6">
-                                            <div class="p-3 bg-primary bg-opacity-10 rounded mb-3">
-                                                <h3 class="text-primary"><i class="fas fa-shopping-cart"></i></h3>
-                                                <h5 class="text-primary">Nueva Venta</h5>
-                                            </div>
+                                            <a href="{% url 'nueva_venta' %}" class="text-decoration-none">
+                                                <div class="p-3 bg-primary bg-opacity-10 rounded mb-3 hover-effect">
+                                                    <h3 class="text-primary"><i class="fas fa-shopping-cart"></i></h3>
+                                                    <h5 class="text-primary">Nueva Venta</h5>
+                                                </div>
+                                            </a>
                                         </div>
                                         <div class="col-6">
-                                            <div class="p-3 bg-success bg-opacity-10 rounded mb-3">
-                                                <h3 class="text-success"><i class="fas fa-receipt"></i></h3>
-                                                <h5 class="text-success">Historial</h5>
-                                            </div>
+                                            <a href="{% url 'historial' %}" class="text-decoration-none">
+                                                <div class="p-3 bg-success bg-opacity-10 rounded mb-3 hover-effect">
+                                                    <h3 class="text-success"><i class="fas fa-receipt"></i></h3>
+                                                    <h5 class="text-success">Historial</h5>
+                                                </div>
+                                            </a>
                                         </div>
                                         <div class="col-6">
-                                            <div class="p-3 bg-info bg-opacity-10 rounded">
-                                                <h3 class="text-info"><i class="fas fa-tags"></i></h3>
-                                                <h5 class="text-info">Ofertas</h5>
-                                            </div>
+                                            <a href="{% url 'ofertas' %}" class="text-decoration-none">
+                                                <div class="p-3 bg-info bg-opacity-10 rounded hover-effect">
+                                                    <h3 class="text-info"><i class="fas fa-tags"></i></h3>
+                                                    <h5 class="text-info">Ofertas</h5>
+                                                </div>
+                                            </a>
                                         </div>
                                         <div class="col-6">
-                                            <div class="p-3 bg-warning bg-opacity-10 rounded">
-                                                <h3 class="text-warning"><i class="fas fa-percent"></i></h3>
-                                                <h5 class="text-warning">Descuentos</h5>
-                                            </div>
+                                            <a href="{% url 'productos' %}" class="text-decoration-none">
+                                                <div class="p-3 bg-warning bg-opacity-10 rounded hover-effect">
+                                                    <h3 class="text-warning"><i class="fas fa-box"></i></h3>
+                                                    <h5 class="text-warning">Productos</h5>
+                                                </div>
+                                            </a>
                                         </div>
                                     </div>
                                 </div>
@@ -207,16 +224,18 @@
                                 </div>
                                 <div class="card-body">
                                     <div class="d-grid gap-2">
-                                        <a href="#" class="btn btn-outline-primary text-start">
-                                            <i class="fas fa-boxes me-2"></i> Gestionar Inventario
+                                        {% if user.is_superuser %}
+                                        <a href="#" class="btn btn-outline-info text-start w-100 mb-2 hover-effect" data-bs-toggle="modal" data-bs-target="#inventoryAccessModal">
+                                            <i class="fas fa-boxes me-2"></i>Gestionar Inventario
                                         </a>
-                                        <a href="#" class="btn btn-outline-success text-start">
-                                            <i class="fas fa-truck me-2"></i> Gestionar Proveedores
+                                        <a href="#" class="btn btn-outline-secondary text-start w-100 mb-2 hover-effect" data-bs-toggle="modal" data-bs-target="#providersAccessModal">
+                                            <i class="fas fa-truck me-2"></i>Gestionar Proveedores
                                         </a>
-                                        <a href="#" class="btn btn-outline-danger text-start">
+                                        {% endif %}
+                                        <a href="#" class="btn btn-outline-danger text-start w-100 mb-2">
                                             <i class="fas fa-exclamation-triangle me-2"></i> Productos Bajos en Stock
                                         </a>
-                                        <a href="#" class="btn btn-outline-info text-start">
+                                        <a href="#" class="btn btn-outline-info text-start w-100">
                                             <i class="fas fa-file-invoice-dollar me-2"></i> Reportes de Ventas
                                         </a>
                                     </div>
@@ -264,8 +283,16 @@
                                     <h5 class="mb-0"><i class="fas fa-bolt me-2"></i>Acciones Rápidas</h5>
                                 </div>
                                 <div class="card-body">
+                                    {% if user.is_superuser %}
+                                    <a href="{% url 'gestionar_inventario' %}" class="btn btn-outline-info w-100 mb-2 hover-effect">
+                                        <i class="fas fa-boxes me-2"></i>Gestionar Inventario
+                                    </a>
+                                    <a href="{% url 'gestionar_proveedores' %}" class="btn btn-outline-secondary w-100 mb-2 hover-effect">
+                                        <i class="fas fa-truck me-2"></i>Gestionar Proveedores
+                                    </a>
+                                    {% endif %}
                                     <div class="d-grid gap-2">
-                                        <a href="#" class="btn btn-outline-primary text-start">
+                                        <a href="{% url 'nueva_venta' %}" class="btn btn-outline-primary text-start">
                                             <i class="fas fa-cash-register me-2"></i> Nueva Venta
                                         </a>
                                     </div>
@@ -333,7 +360,71 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- Acceso a Inventario -->
+    <div class="modal fade" id="inventoryAccessModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="fas fa-boxes me-2"></i>Acceso a Gestión de Inventario</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">Por razones de seguridad, confirma tu contraseña para acceder a la gestión de inventario:</p>
+                    <form id="inventoryAccessForm" method="post" action="{% url 'verify_password_inventory' %}"> <!-- URL placeholder -->
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="inventoryPassword" class="form-label">Contraseña:</label>
+                            <input type="password" class="form-control" id="inventoryPassword" name="password" required>
+                            <input type="hidden" name="username" value="{{ user.username }}">
+                        </div>
+                    </form>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Estás a punto de modificar el inventario de la tienda.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" form="inventoryAccessForm" class="btn btn-info">
+                        <i class="fas fa-lock-open me-1"></i> Acceder
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Acceso a Proveedores -->
+    <div class="modal fade" id="providersAccessModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-secondary text-white">
+                    <h5 class="modal-title"><i class="fas fa-truck me-2"></i>Acceso a Gestión de Proveedores</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">Por razones de seguridad, confirma tu contraseña para acceder a la gestión de proveedores:</p>
+                    <form id="providersAccessForm" method="post" action="{% url 'verify_password_providers' %}"> <!-- URL placeholder -->
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="providersPassword" class="form-label">Contraseña:</label>
+                            <input type="password" class="form-control" id="providersPassword" name="password" required>
+                            <input type="hidden" name="username" value="{{ user.username }}">
+                        </div>
+                    </form>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Estás a punto de modificar la información de proveedores.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" form="providersAccessForm" class="btn btn-secondary">
+                        <i class="fas fa-lock-open me-1"></i> Acceder
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Advertencia de timeout -->
     <div class="modal fade" id="sessionWarningModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">

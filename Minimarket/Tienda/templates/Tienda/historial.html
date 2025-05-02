@@ -1,0 +1,96 @@
+{% extends 'Tienda/base_layout.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-12 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0"><i class="fas fa-receipt me-2"></i>Historial de Ventas</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Mostrando ventas realizadas hoy: <strong>{{ ventas.count }}</strong> ventas
+                    </div>
+                    
+                    {% if ventas %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Fecha</th>
+                                    <th>Total</th>
+                                    <th>Detalles</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for venta in ventas %}
+                                <tr>
+                                    <td>#{{ venta.id }}</td>
+                                    <td>{{ venta.fecha|date:"d/m/Y H:i" }}</td>
+                                    <td class="text-primary">${{ venta.total }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-info" data-bs-toggle="collapse" data-bs-target="#detalles-{{ venta.id }}">
+                                            <i class="fas fa-eye me-1"></i> Ver
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr class="collapse" id="detalles-{{ venta.id }}">
+                                    <td colspan="4">
+                                        <div class="card card-body bg-light">
+                                            <h6 class="mb-3">Productos vendidos:</h6>
+                                            <div class="table-responsive">
+                                                <table class="table table-sm">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Producto</th>
+                                                            <th>Precio</th>
+                                                            <th>Cantidad</th>
+                                                            <th>Subtotal</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for detalle in venta.detalles.all %}
+                                                        <tr>
+                                                            <td>{{ detalle.producto.nombre }}</td>
+                                                            <td>${{ detalle.precio_unitario }}</td>
+                                                            <td>{{ detalle.cantidad }}</td>
+                                                            <td>${{ detalle.subtotal }}</td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                    <tfoot>
+                                                        <tr>
+                                                            <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                                                            <td><strong>${{ venta.total }}</strong></td>
+                                                        </tr>
+                                                    </tfoot>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        No hay ventas registradas para el día de hoy.
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-flex justify-content-end mt-3">
+                        <a href="{% url 'home' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Volver al Inicio
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
