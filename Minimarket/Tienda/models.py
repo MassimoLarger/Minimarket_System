@@ -12,6 +12,7 @@ class Proveedor(models.Model):
     nombre_proveedor = models.CharField(max_length=100)
     direccion = models.CharField(max_length=200)
     telefono = models.IntegerField()
+    email = models.EmailField(max_length=100, null=True, blank=True)
     
     def __str__(self):
         return f"{self.nombre_proveedor}"

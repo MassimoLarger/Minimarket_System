@@ -494,27 +494,44 @@ def gestionar_proveedores(request):
     # Verificar si el acceso fue concedido a través de la verificación de contraseña
     if not request.session.get('providers_access_granted', False):
         messages.warning(request, 'Debes verificar tu contraseña para acceder a la gestión de proveedores.')
-        # Asegurarse de limpiar el flag si existe por alguna razón
         request.session['providers_access_granted'] = False
         return redirect('home')
-
-    # Limpiar el flag de sesión después de verificarlo para requerir verificación la próxima vez
-    request.session['providers_access_granted'] = False
+    
+    # No limpiar el flag de sesión en ningún caso para mantener el acceso durante operaciones CRUD
+    
+    # Obtener todos los proveedores para mostrar en la tabla
+    proveedores = Proveedor.objects.all().order_by('nombre_proveedor')
+    
     if request.method == 'POST':
         action = request.POST.get('action')
         proveedor_id = request.POST.get('proveedor_id')
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
         if action == 'add_proveedor':
             try:
-                Proveedor.objects.create(
+                proveedor = Proveedor.objects.create(
                     nombre_proveedor=request.POST.get('nombre_proveedor'),
                     direccion=request.POST.get('direccion'),
                     telefono=request.POST.get('telefono'),
                     email=request.POST.get('email') or None
                 )
                 messages.success(request, 'Proveedor añadido correctamente.')
+                if is_ajax:
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Proveedor añadido correctamente.',
+                        'proveedor': {
+                            'id': proveedor.id,
+                            'nombre_proveedor': proveedor.nombre_proveedor
+                        }
+                    })
             except Exception as e:
                 messages.error(request, f'Error al añadir proveedor: {e}')
+                if is_ajax:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Error al añadir proveedor: {e}'
+                    }, status=400)
 
         elif action == 'edit_proveedor' and proveedor_id:
             try:
@@ -524,23 +541,50 @@ def gestionar_proveedores(request):
                 proveedor.telefono = request.POST.get('telefono')
                 proveedor.email = request.POST.get('email') or None
                 proveedor.save()
-                messages.success(request, 'Proveedor actualizado correctamente.')
+                messages.success(request, f'Proveedor "{proveedor.nombre_proveedor}" actualizado correctamente.')
+                if is_ajax:
+                    return JsonResponse({
+                        'success': True,
+                        'message': f'Proveedor "{proveedor.nombre_proveedor}" actualizado correctamente.'
+                    })
             except Exception as e:
                 messages.error(request, f'Error al actualizar proveedor: {e}')
-
+                if is_ajax:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Error al actualizar proveedor: {e}'
+                    }, status=400)
+        
         elif action == 'delete_proveedor' and proveedor_id:
             try:
                 proveedor = get_object_or_404(Proveedor, id=proveedor_id)
                 nombre_proveedor = proveedor.nombre_proveedor
-                # Verificar si hay lotes asociados antes de eliminar
                 lotes_asociados = Lote.objects.filter(proveedor=proveedor).exists()
                 if lotes_asociados:
-                    messages.error(request, f'No se puede eliminar el proveedor "{nombre_proveedor}" porque tiene lotes asociados.')
+                    mensaje = f'No se puede eliminar el proveedor "{nombre_proveedor}" porque tiene lotes asociados.'
+                    messages.error(request, mensaje)
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': False,
+                            'message': mensaje
+                        }, status=400)
                 else:
                     proveedor.delete()
-                    messages.success(request, f'Proveedor "{nombre_proveedor}" eliminado.')
+                    mensaje = f'Proveedor "{nombre_proveedor}" eliminado correctamente.'
+                    messages.success(request, mensaje)
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': True,
+                            'message': mensaje
+                        })
             except Exception as e:
-                messages.error(request, f'Error al eliminar proveedor: {e}')
+                mensaje = f'Error al eliminar proveedor: {e}'
+                messages.error(request, mensaje)
+                if is_ajax:
+                    return JsonResponse({
+                        'success': False,
+                        'message': mensaje
+                    }, status=400)
         
         elif action == 'get_proveedor':
             try:
@@ -555,8 +599,14 @@ def gestionar_proveedores(request):
             except Exception as e:
                 return JsonResponse({'error': str(e)}, status=400)
         
-        return redirect('gestionar_proveedores') # Redirigir después de cualquier acción POST
-
+        # Si llegamos aquí y es una solicitud AJAX, devolver un error
+        if is_ajax:
+            return JsonResponse({
+                'success': False,
+                'message': 'Acción no válida'
+            }, status=400)
+    
+    # Recargar la lista actualizada de proveedores
     proveedores = Proveedor.objects.all().order_by('nombre_proveedor')
     context = {
         'proveedores': proveedores

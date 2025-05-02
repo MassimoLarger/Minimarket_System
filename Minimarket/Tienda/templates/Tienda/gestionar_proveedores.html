@@ -4,6 +4,32 @@
 <div class="container mt-4">
     <h2 class="mb-4"><i class="fas fa-truck me-2"></i>Gestionar Proveedores</h2>
 
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0"><i class="fas fa-search me-2"></i>Buscar Proveedores</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="input-group mb-3">
+                        <input type="text" id="buscar-proveedor" class="form-control" placeholder="Buscar por nombre, dirección, teléfono o email...">
+                        <button class="btn btn-primary" type="button" id="btn-buscar">
+                            <i class="fas fa-search"></i> Buscar
+                        </button>
+                    </div>
+                    <small class="text-muted">La búsqueda se realiza en tiempo real mientras escribes</small>
+                </div>
+                <div class="col-md-4">
+                    <select id="filtro-proveedor" class="form-select">
+                        <option value="">Todos los proveedores</option>
+                        <option value="con-email">Con email</option>
+                        <option value="sin-email">Sin email</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-secondary text-white">
             <h5 class="mb-0"><i class="fas fa-list me-2"></i>Listado de Proveedores</h5>
@@ -16,7 +42,7 @@
 
             <!-- Tabla de Proveedores -->
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table table-hover" id="tabla-proveedores">
                     <thead>
                         <tr>
                             <th>Nombre</th>
@@ -28,19 +54,19 @@
                     </thead>
                     <tbody>
                         {% for proveedor in proveedores %}
-                        <tr>
+                        <tr class="fila-proveedor" data-nombre="{{ proveedor.nombre_proveedor|lower }}" data-direccion="{{ proveedor.direccion|lower }}" data-telefono="{{ proveedor.telefono }}" data-email="{{ proveedor.email|default:'' }}">
                             <td>{{ proveedor.nombre_proveedor }}</td>
                             <td>{{ proveedor.direccion }}</td>
                             <td>{{ proveedor.telefono }}</td>
                             <td>{{ proveedor.email|default:"N/A" }}</td>
                             <td>
                                 <!-- Acciones para proveedores (editar, eliminar) -->
-                                <button class="btn btn-sm btn-warning editar-proveedor" data-id="{{ proveedor.id }}"><i class="fas fa-edit"></i></button>
+                                <button class="btn btn-sm btn-warning editar-proveedor" data-id="{{ proveedor.id }}" data-nombre="{{ proveedor.nombre_proveedor }}" data-direccion="{{ proveedor.direccion }}" data-telefono="{{ proveedor.telefono }}" data-email="{{ proveedor.email|default:'' }}"><i class="fas fa-edit"></i></button>
                                 <button class="btn btn-sm btn-danger eliminar-proveedor" data-id="{{ proveedor.id }}"><i class="fas fa-trash"></i></button>
                             </td>
                         </tr>
                         {% empty %}
-                        <tr>
+                        <tr id="no-resultados">
                             <td colspan="5" class="text-center">No hay proveedores registrados.</td>
                         </tr>
                         {% endfor %}
@@ -66,7 +92,7 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form id="form-proveedor" method="post" action="{% url 'gestionar_proveedores' %}"> <!-- Ajustar la URL de acción -->
+                <form id="form-proveedor" method="post" action="{% url 'gestionar_proveedores' %}">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="add_proveedor" id="proveedor-action">
                     <input type="hidden" name="proveedor_id" id="proveedor-id">
@@ -80,7 +106,8 @@
                     </div>
                     <div class="mb-3">
                         <label for="telefono" class="form-label">Teléfono</label>
-                        <input type="text" class="form-control" id="telefono" name="telefono" required>
+                        <input type="text" class="form-control" id="telefono" name="telefono" required pattern="[0-9]+">
+                        <div class="form-text">Solo números, sin espacios ni guiones.</div>
                     </div>
                     <div class="mb-3">
                         <label for="email" class="form-label">Email (Opcional)</label>
@@ -106,6 +133,87 @@
     const proveedorIdInput = document.getElementById('proveedor-id');
     const modalTitle = document.getElementById('nuevoProveedorModalLabel');
     const btnGuardar = document.getElementById('btn-guardar-proveedor');
+    const buscarInput = document.getElementById('buscar-proveedor');
+    const filtroSelect = document.getElementById('filtro-proveedor');
+    const btnBuscar = document.getElementById('btn-buscar');
+    const tablaProveedores = document.getElementById('tabla-proveedores');
+    const filasProveedores = document.querySelectorAll('.fila-proveedor');
+    const noResultados = document.getElementById('no-resultados');
+
+    // Función para mostrar/ocultar filas según búsqueda y filtro
+    function filtrarProveedores() {
+        const textoBusqueda = buscarInput.value.toLowerCase().trim();
+        const filtro = filtroSelect.value;
+        let hayResultados = false;
+
+        // Obtener todas las filas de proveedores (para asegurar que estamos trabajando con la colección actualizada)
+        const filasActuales = document.querySelectorAll('.fila-proveedor');
+
+        filasActuales.forEach(fila => {
+            const nombre = fila.dataset.nombre || '';
+            const direccion = fila.dataset.direccion || '';
+            const telefono = fila.dataset.telefono || '';
+            const email = fila.dataset.email || '';
+            
+            // Aplicar filtro de email
+            let pasaFiltroEmail = true;
+            if (filtro === 'con-email' && !email) {
+                pasaFiltroEmail = false;
+            } else if (filtro === 'sin-email' && email) {
+                pasaFiltroEmail = false;
+            }
+            
+            // Aplicar búsqueda de texto
+            const pasaBusqueda = textoBusqueda === '' || 
+                nombre.includes(textoBusqueda) || 
+                direccion.includes(textoBusqueda) || 
+                telefono.includes(textoBusqueda) ||
+                (email && email.includes(textoBusqueda));
+            
+            // Mostrar u ocultar fila
+            if (pasaFiltroEmail && pasaBusqueda) {
+                fila.style.display = '';
+                hayResultados = true;
+            } else {
+                fila.style.display = 'none';
+            }
+        });
+
+        // Mostrar mensaje si no hay resultados
+        const noResultadosRow = document.getElementById('no-resultados');
+        if (noResultadosRow) {
+            if (hayResultados) {
+                noResultadosRow.style.display = 'none';
+            } else {
+                noResultadosRow.style.display = '';
+                const mensajeCell = noResultadosRow.querySelector('td');
+                if (mensajeCell) {
+                    mensajeCell.textContent = 'No se encontraron proveedores con los criterios de búsqueda.';
+                }
+            }
+        }
+    }
+
+    // Eventos para filtrado y búsqueda
+    if (btnBuscar) {
+        btnBuscar.addEventListener('click', filtrarProveedores);
+    }
+    
+    if (buscarInput) {
+        // Filtrar en tiempo real mientras se escribe
+        buscarInput.addEventListener('input', filtrarProveedores);
+        
+        // También mantener el evento de Enter por compatibilidad
+        buscarInput.addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') {
+                filtrarProveedores();
+            }
+        });
+    }
+    
+    if (filtroSelect) {
+        filtroSelect.addEventListener('change', filtrarProveedores);
+    }
 
     // Resetear modal al abrir para añadir
     document.querySelector('[data-bs-target="#nuevoProveedorModal"]').addEventListener('click', () => {
@@ -118,66 +226,240 @@
         btnGuardar.classList.add('btn-success');
     });
 
-    // Preparar modal para editar
-    document.querySelectorAll('.editar-proveedor').forEach(button => {
-        button.addEventListener('click', async (event) => {
-            const proveedorId = event.currentTarget.dataset.id;
-            // Aquí necesitarías una llamada AJAX para obtener los datos del proveedor por ID
-            // fetch(`/api/proveedores/${proveedorId}/`) // Ejemplo de endpoint API
-            // .then(response => response.json())
-            // .then(data => {
-            //     document.getElementById('nombre_proveedor').value = data.nombre_proveedor;
-            //     document.getElementById('direccion').value = data.direccion;
-            //     document.getElementById('telefono').value = data.telefono;
-            //     document.getElementById('email').value = data.email || '';
-            //     proveedorActionInput.value = 'edit_proveedor';
-            //     proveedorIdInput.value = proveedorId;
-            //     modalTitle.innerHTML = '<i class="fas fa-edit me-2"></i>Editar Proveedor';
-            //     btnGuardar.textContent = 'Actualizar Proveedor';
-            //     btnGuardar.classList.remove('btn-success');
-            //     btnGuardar.classList.add('btn-warning');
-            //     nuevoProveedorModal.show();
-            // });
-            
-            // Placeholder hasta implementar AJAX
-            console.log(`Editar proveedor con ID: ${proveedorId}. Se necesita AJAX.`);
-            alert('Funcionalidad de edición pendiente de implementación con AJAX.');
+    // Función para configurar los eventos de los botones de editar
+    function configurarBotonesEditar() {
+        // Primero eliminar los event listeners existentes para evitar duplicados
+        document.querySelectorAll('.editar-proveedor').forEach(button => {
+            button.replaceWith(button.cloneNode(true));
         });
-    });
-
-    // Confirmación antes de eliminar
-    document.querySelectorAll('.eliminar-proveedor').forEach(button => {
-        button.addEventListener('click', (event) => {
-            const proveedorId = event.currentTarget.dataset.id;
-            if (confirm('¿Estás seguro de que deseas eliminar este proveedor?')) {
-                // Crear un formulario dinámico para enviar la solicitud POST
-                const form = document.createElement('form');
-                form.method = 'post';
-                form.action = '{% url "gestionar_proveedores" %}'; // Ajustar si la URL es diferente
+        
+        // Luego añadir los nuevos event listeners
+        document.querySelectorAll('.editar-proveedor').forEach(button => {
+            button.addEventListener('click', (event) => {
+                const btn = event.currentTarget;
+                const proveedorId = btn.dataset.id;
+                const nombre = btn.dataset.nombre;
+                const direccion = btn.dataset.direccion;
+                const telefono = btn.dataset.telefono;
+                const email = btn.dataset.email;
                 
-                const csrfInput = document.createElement('input');
-                csrfInput.type = 'hidden';
-                csrfInput.name = 'csrfmiddlewaretoken';
-                csrfInput.value = '{{ csrf_token }}'; // Asegúrate que el token CSRF esté disponible
-                form.appendChild(csrfInput);
+                // Llenar el formulario con los datos del proveedor
+                document.getElementById('nombre_proveedor').value = nombre;
+                document.getElementById('direccion').value = direccion;
+                document.getElementById('telefono').value = telefono;
+                document.getElementById('email').value = email || '';
+                
+                // Configurar el formulario para edición
+                proveedorActionInput.value = 'edit_proveedor';
+                proveedorIdInput.value = proveedorId;
+                modalTitle.innerHTML = '<i class="fas fa-edit me-2"></i>Editar Proveedor';
+                btnGuardar.textContent = 'Actualizar Proveedor';
+                btnGuardar.classList.remove('btn-success');
+                btnGuardar.classList.add('btn-warning');
+                
+                // Mostrar el modal
+                nuevoProveedorModal.show();
+            });
+        });
+    }
+    
+    // Inicializar los botones de editar
+    configurarBotonesEditar();
 
-                const actionInput = document.createElement('input');
-                actionInput.type = 'hidden';
-                actionInput.name = 'action';
-                actionInput.value = 'delete_proveedor';
-                form.appendChild(actionInput);
+    // La configuración de los botones de eliminar ahora se maneja en la función configurarBotonesEliminar()
 
-                const idInput = document.createElement('input');
-                idInput.type = 'hidden';
-                idInput.name = 'proveedor_id';
-                idInput.value = proveedorId;
-                form.appendChild(idInput);
-
-                document.body.appendChild(form);
-                form.submit();
+    // Prevenir que el formulario redirija a home
+    formProveedor.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Validar el formulario
+        if (!this.checkValidity()) {
+            e.stopPropagation();
+            this.classList.add('was-validated');
+            return;
+        }
+        
+        // Obtener los datos del formulario
+        const formData = new FormData(this);
+        const action = formData.get('action');
+        const proveedorId = formData.get('proveedor_id');
+        const nombre = formData.get('nombre_proveedor');
+        const direccion = formData.get('direccion');
+        const telefono = formData.get('telefono');
+        const email = formData.get('email') || '';
+        
+        // Enviar los datos mediante fetch
+        fetch(this.action, {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
             }
+        })
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            } else {
+                return response.text().then(text => {
+                    throw new Error('Error al guardar el proveedor: ' + text);
+                });
+            }
+        })
+        .then(data => {
+            // Cerrar el modal
+            nuevoProveedorModal.hide();
+            
+            if (action === 'add_proveedor') {
+                // Añadir nueva fila a la tabla
+                const tbody = document.querySelector('#tabla-proveedores tbody');
+                const noResultados = document.getElementById('no-resultados');
+                
+                // Si no hay resultados, ocultarlo
+                if (noResultados) {
+                    noResultados.style.display = 'none';
+                }
+                
+                // Crear nueva fila
+                const nuevaFila = document.createElement('tr');
+                nuevaFila.className = 'fila-proveedor';
+                nuevaFila.dataset.nombre = nombre.toLowerCase();
+                nuevaFila.dataset.direccion = direccion.toLowerCase();
+                nuevaFila.dataset.telefono = telefono;
+                nuevaFila.dataset.email = email;
+                
+                nuevaFila.innerHTML = `
+                    <td>${nombre}</td>
+                    <td>${direccion}</td>
+                    <td>${telefono}</td>
+                    <td>${email || 'N/A'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-warning editar-proveedor" data-id="${data.proveedor.id}" data-nombre="${nombre}" data-direccion="${direccion}" data-telefono="${telefono}" data-email="${email}"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-danger eliminar-proveedor" data-id="${data.proveedor.id}"><i class="fas fa-trash"></i></button>
+                    </td>
+                `;
+                
+                tbody.appendChild(nuevaFila);
+                
+                // Configurar eventos para los nuevos botones
+                configurarBotonesEditar();
+                // Primero eliminar los event listeners existentes para evitar duplicados
+                document.querySelectorAll('.eliminar-proveedor').forEach(button => {
+                    button.removeEventListener('click', eliminarProveedorHandler);
+                });
+                // Luego volver a configurar todos los botones de eliminar
+                configurarBotonesEliminar();
+                
+            } else if (action === 'edit_proveedor') {
+                // Actualizar fila existente
+                const fila = document.querySelector(`button.editar-proveedor[data-id="${proveedorId}"]`).closest('tr');
+                
+                if (fila) {
+                    // Actualizar datos de la fila
+                    fila.dataset.nombre = nombre.toLowerCase();
+                    fila.dataset.direccion = direccion.toLowerCase();
+                    fila.dataset.telefono = telefono;
+                    fila.dataset.email = email;
+                    
+                    // Actualizar contenido visible
+                    fila.cells[0].textContent = nombre;
+                    fila.cells[1].textContent = direccion;
+                    fila.cells[2].textContent = telefono;
+                    fila.cells[3].textContent = email || 'N/A';
+                    
+                    // Actualizar atributos de los botones
+                    const btnEditar = fila.querySelector('.editar-proveedor');
+                    btnEditar.dataset.nombre = nombre;
+                    btnEditar.dataset.direccion = direccion;
+                    btnEditar.dataset.telefono = telefono;
+                    btnEditar.dataset.email = email;
+                    
+                    // Reconfigurar los event listeners para asegurar que funcionen correctamente
+                    configurarBotonesEditar();
+                    configurarBotonesEliminar();
+                }
+            }
+            
+            // Mostrar mensaje de éxito
+            alert(data.message || 'Operación completada con éxito');
+            
+            // Aplicar filtros actuales
+            filtrarProveedores();
+        })
+        .catch(error => {
+            alert('Error: ' + error.message);
         });
     });
-
+    
+    // Función para manejar la eliminación de proveedores
+    function eliminarProveedorHandler(event) {
+        const proveedorId = event.currentTarget.dataset.id;
+        if (confirm('¿Estás seguro de que deseas eliminar este proveedor?')) {
+            // Crear FormData para enviar la solicitud POST
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+            formData.append('action', 'delete_proveedor');
+            formData.append('proveedor_id', proveedorId);
+            
+            // Enviar solicitud mediante fetch
+            fetch('{% url "gestionar_proveedores" %}', {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Eliminar la fila de la tabla o recargar la página
+                    const fila = event.currentTarget.closest('tr');
+                    if (fila) {
+                        fila.remove();
+                        // Si no quedan filas, mostrar mensaje de no resultados
+                        if (document.querySelectorAll('.fila-proveedor').length === 0) {
+                            if (noResultados) {
+                                noResultados.style.display = '';
+                                noResultados.querySelector('td').textContent = 'No hay proveedores registrados.';
+                            }
+                        }
+                    } else {
+                        window.location.reload();
+                    }
+                    return response.json();
+                } else {
+                    return response.text().then(text => {
+                        throw new Error('Error al eliminar el proveedor: ' + text);
+                    });
+                }
+            })
+            .then(data => {
+                if (data && data.message) {
+                    alert(data.message);
+                }
+                // Aplicar filtros actuales
+                filtrarProveedores();
+            })
+            .catch(error => {
+                alert('Error: ' + error.message);
+            });
+        }
+    }
+    
+    // Configurar botones de eliminar
+    function configurarBotonesEliminar() {
+        // Primero eliminar los event listeners existentes para evitar duplicados
+        document.querySelectorAll('.eliminar-proveedor').forEach(button => {
+            button.replaceWith(button.cloneNode(true));
+        });
+        
+        // Luego añadir los nuevos event listeners
+        document.querySelectorAll('.eliminar-proveedor').forEach(button => {
+            button.addEventListener('click', eliminarProveedorHandler);
+        });
+    }
+    
+    // Inicializar botones de eliminar
+    configurarBotonesEliminar();
 </script>
 {% endblock %}
