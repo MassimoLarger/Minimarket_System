@@ -265,6 +265,7 @@
     
     // Inicializar los botones de editar
     configurarBotonesEditar();
+    configurarBotonesEliminar();
 
     // La configuración de los botones de eliminar ahora se maneja en la función configurarBotonesEliminar()
 
@@ -289,12 +290,29 @@
         const email = formData.get('email') || '';
         
         // Enviar los datos mediante fetch
+        // Función para obtener el token CSRF de la cookie
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== "") {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    // ¿Esta cookie comienza con el nombre que queremos?
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
         fetch(this.action, {
             method: 'POST',
             body: formData,
             credentials: 'same-origin',
             headers: {
-                'X-Requested-With': 'XMLHttpRequest'
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': getCookie('csrftoken')
             }
         })
         .then(response => {
@@ -314,12 +332,10 @@
                 // Añadir nueva fila a la tabla
                 const tbody = document.querySelector('#tabla-proveedores tbody');
                 const noResultados = document.getElementById('no-resultados');
-                
                 // Si no hay resultados, ocultarlo
                 if (noResultados) {
                     noResultados.style.display = 'none';
                 }
-                
                 // Crear nueva fila
                 const nuevaFila = document.createElement('tr');
                 nuevaFila.className = 'fila-proveedor';
@@ -327,7 +343,6 @@
                 nuevaFila.dataset.direccion = direccion.toLowerCase();
                 nuevaFila.dataset.telefono = telefono;
                 nuevaFila.dataset.email = email;
-                
                 nuevaFila.innerHTML = `
                     <td>${nombre}</td>
                     <td>${direccion}</td>
@@ -338,42 +353,30 @@
                         <button class="btn btn-sm btn-danger eliminar-proveedor" data-id="${data.proveedor.id}"><i class="fas fa-trash"></i></button>
                     </td>
                 `;
-                
                 tbody.appendChild(nuevaFila);
-                
                 // Configurar eventos para los nuevos botones
                 configurarBotonesEditar();
-                // Primero eliminar los event listeners existentes para evitar duplicados
-                document.querySelectorAll('.eliminar-proveedor').forEach(button => {
-                    button.removeEventListener('click', eliminarProveedorHandler);
-                });
-                // Luego volver a configurar todos los botones de eliminar
                 configurarBotonesEliminar();
-                
             } else if (action === 'edit_proveedor') {
                 // Actualizar fila existente
                 const fila = document.querySelector(`button.editar-proveedor[data-id="${proveedorId}"]`).closest('tr');
-                
                 if (fila) {
                     // Actualizar datos de la fila
                     fila.dataset.nombre = nombre.toLowerCase();
                     fila.dataset.direccion = direccion.toLowerCase();
                     fila.dataset.telefono = telefono;
                     fila.dataset.email = email;
-                    
                     // Actualizar contenido visible
                     fila.cells[0].textContent = nombre;
                     fila.cells[1].textContent = direccion;
                     fila.cells[2].textContent = telefono;
                     fila.cells[3].textContent = email || 'N/A';
-                    
                     // Actualizar atributos de los botones
                     const btnEditar = fila.querySelector('.editar-proveedor');
                     btnEditar.dataset.nombre = nombre;
                     btnEditar.dataset.direccion = direccion;
                     btnEditar.dataset.telefono = telefono;
                     btnEditar.dataset.email = email;
-                    
                     // Reconfigurar los event listeners para asegurar que funcionen correctamente
                     configurarBotonesEditar();
                     configurarBotonesEliminar();
@@ -423,6 +426,8 @@
                                 noResultados.querySelector('td').textContent = 'No hay proveedores registrados.';
                             }
                         }
+                        configurarBotonesEditar();
+                        configurarBotonesEliminar();
                     } else {
                         window.location.reload();
                     }
