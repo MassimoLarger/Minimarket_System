@@ -47,8 +47,61 @@ def logout_view(request):
 
 @login_required
 def nueva_venta(request):
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                # Crear la venta
+                venta = Venta.objects.create(
+                    empleado=request.user,
+                    total=request.POST.get('total', 0)
+                )
+                
+                # Procesar los detalles de la venta
+                productos_ids = request.POST.getlist('producto_id[]')
+                cantidades = request.POST.getlist('cantidad[]')
+                precios = request.POST.getlist('precio[]')
+                
+                for i in range(len(productos_ids)):
+                    producto = get_object_or_404(Producto, id=productos_ids[i])
+                    cantidad = int(cantidades[i])
+                    precio = float(precios[i])
+                    
+                    # Crear detalle de venta
+                    DetalleVenta.objects.create(
+                        venta=venta,
+                        producto=producto,
+                        cantidad=cantidad,
+                        precio_unitario=precio
+                    )
+                    
+                    # Actualizar stock del producto
+                    producto.stock -= cantidad
+                    producto.save()
+                
+                messages.success(request, f'Venta #{venta.id} registrada correctamente.')
+                return redirect('historial')
+        except Exception as e:
+            messages.error(request, f'Error al procesar la venta: {e}')
+            return redirect('nueva_venta')
+    
+    # Para solicitudes GET
     productos = Producto.objects.all()
     return render(request, 'Tienda/nueva_venta.html', {'productos': productos})
+
+@login_required
+def obtener_detalle_venta(request, venta_id):
+    venta = get_object_or_404(Venta, id=venta_id)
+    detalles = DetalleVenta.objects.filter(venta=venta)
+    
+    # Verificar que el usuario sea el empleado que realizó la venta o un superusuario
+    if request.user != venta.empleado and not request.user.is_superuser:
+        messages.error(request, 'No tienes permiso para ver esta venta.')
+        return redirect('historial')
+    
+    return render(request, 'Tienda/detalle_venta.html', {
+        'venta': venta,
+        'detalles': detalles
+    })
 
 @login_required
 def historial(request):
@@ -80,7 +133,7 @@ def ofertas(request):
                     if oferta_id: # Editar oferta existente
                         oferta = get_object_or_404(Oferta, id=oferta_id)
                         oferta.tipo_oferta = request.POST.get('tipo_oferta')
-                        oferta.descuento_porcentaje = request.POST.get('descuento_porcentaje')
+                        oferta.descuento_porcetaje = float(request.POST.get('descuento_porcentaje'))
                         oferta.fecha_inicio = request.POST.get('fecha_inicio')
                         oferta.fecha_fin = request.POST.get('fecha_fin')
                         oferta.save()
@@ -91,7 +144,7 @@ def ofertas(request):
                     else: # Crear nueva oferta
                         oferta = Oferta.objects.create(
                             tipo_oferta=request.POST.get('tipo_oferta'),
-                            descuento_porcentaje=request.POST.get('descuento_porcentaje'),
+                            descuento_porcetaje=float(request.POST.get('descuento_porcentaje')),
                             fecha_inicio=request.POST.get('fecha_inicio'),
                             fecha_fin=request.POST.get('fecha_fin'),
                             creado_por=request.user
@@ -104,13 +157,17 @@ def ofertas(request):
                         producto = get_object_or_404(Producto, id=producto_id)
                         Oferta_producto.objects.create(oferta_id=oferta, producto_id=producto)
 
-                    # Gestionar Oferta_vencimiento (simplificado, asume un solo item por ahora)
-                    # Se necesitaría JS para manejar múltiples items dinámicamente
-                    producto_vencimiento_id = request.POST.get('producto_vencimiento_1')
-                    cantidad_vencimiento = request.POST.get('cantidad_vencimiento_1')
-                    new_code_bar = request.POST.get('new_code_bar_1')
-
-                    if producto_vencimiento_id and cantidad_vencimiento:
+                    # Gestionar múltiples Oferta_vencimiento
+                    # Obtener todos los productos de vencimiento dinámicamente
+                    i = 1
+                    while True:
+                        producto_vencimiento_id = request.POST.get(f'producto_vencimiento_{i}')
+                        cantidad_vencimiento = request.POST.get(f'cantidad_vencimiento_{i}')
+                        new_code_bar = request.POST.get(f'new_code_bar_{i}')
+                        
+                        if not producto_vencimiento_id or not cantidad_vencimiento:
+                            break
+                            
                         producto_venc = get_object_or_404(Producto, id=producto_vencimiento_id)
                         Oferta_vencimiento.objects.create(
                             oferta_id=oferta,
@@ -118,6 +175,8 @@ def ofertas(request):
                             cantidad=cantidad_vencimiento,
                             new_code_bar=new_code_bar if new_code_bar else None
                         )
+                        i += 1
+                        
                 return redirect('ofertas') # Redirigir después de guardar
 
             except Exception as e:
@@ -132,6 +191,28 @@ def ofertas(request):
              except Exception as e:
                  messages.error(request, f'Error al eliminar la oferta: {e}')
              return redirect('ofertas')
+             
+        elif action == 'get_oferta':
+            try:
+                oferta = get_object_or_404(Oferta, id=oferta_id)
+                productos_oferta = [op.producto_id.id for op in Oferta_producto.objects.filter(oferta_id=oferta)]
+                productos_vencimiento = [{
+                    'producto_id': ov.producto_id.id,
+                    'cantidad': ov.cantidad,
+                    'new_code_bar': ov.new_code_bar or ''
+                } for ov in Oferta_vencimiento.objects.filter(oferta_id=oferta)]
+                
+                return JsonResponse({
+                    'id': oferta.id,
+                    'tipo_oferta': oferta.tipo_oferta,
+                    'descuento_porcentaje': float(oferta.descuento_porcetaje),
+                    'fecha_inicio': oferta.fecha_inicio.strftime('%Y-%m-%d'),
+                    'fecha_fin': oferta.fecha_fin.strftime('%Y-%m-%d'),
+                    'productos_oferta': productos_oferta,
+                    'productos_vencimiento': productos_vencimiento
+                })
+            except Exception as e:
+                return JsonResponse({'error': str(e)}, status=400)
 
     # Lógica GET (común para admin y empleado)
     ofertas_activas = Oferta.objects.filter(fecha_inicio__lte=timezone.now().date(), fecha_fin__gte=timezone.now().date())
@@ -142,7 +223,7 @@ def ofertas(request):
 
     # Añadir datos extra para admin en GET
     if request.user.is_superuser:
-        context['todas_ofertas'] = Oferta.objects.all().order_by('-fecha_creacion')
+        context['todas_ofertas'] = Oferta.objects.all().order_by('-fecha_inicio')
         context['productos'] = Producto.objects.all()
 
     return render(request, 'Tienda/ofertas.html', context)
@@ -170,7 +251,35 @@ def productos(request):
                 else:
                     messages.error(request, f'Error al añadir producto: {e}')
             return redirect('productos')
-        # Aquí iría la lógica para editar o eliminar si se implementa en esta vista
+        elif action == 'edit_producto':
+            try:
+                producto_id = request.POST.get('producto_id')
+                producto = get_object_or_404(Producto, id=producto_id)
+                producto.nombre = request.POST.get('nombre')
+                producto.codigo_barras = request.POST.get('codigo_barras')
+                producto.precio = request.POST.get('precio')
+                producto.costo = request.POST.get('costo')
+                producto.stock = request.POST.get('stock', 0)
+                producto.minimal_stock = request.POST.get('minimal_stock', 0)
+                producto.descripcion = request.POST.get('descripcion', '')
+                producto.save()
+                messages.success(request, f'Producto "{producto.nombre}" actualizado correctamente.')
+            except Exception as e:
+                if 'UNIQUE constraint failed' in str(e):
+                    messages.error(request, f'Error al actualizar producto: Ya existe un producto con el código de barras {request.POST.get("codigo_barras")}.')
+                else:
+                    messages.error(request, f'Error al actualizar producto: {e}')
+            return redirect('productos')
+        elif action == 'delete_producto':
+            try:
+                producto_id = request.POST.get('producto_id')
+                producto = get_object_or_404(Producto, id=producto_id)
+                nombre_producto = producto.nombre
+                producto.delete()
+                messages.success(request, f'Producto "{nombre_producto}" eliminado correctamente.')
+            except Exception as e:
+                messages.error(request, f'Error al eliminar producto: {e}')
+            return redirect('productos')
 
     # Lógica GET existente
     query = request.GET.get('q', '')
@@ -301,33 +410,82 @@ def gestionar_inventario(request):
                 messages.error(request, f'Error al añadir lote: {e}')
             return redirect('gestionar_inventario')
 
+        elif action == 'edit_lote':
+            try:
+                lote_id = request.POST.get('lote_id')
+                lote = get_object_or_404(Lote, id=lote_id)
+                lote.code_lote = request.POST.get('code_lote')
+                lote.proveedor = get_object_or_404(Proveedor, id=request.POST.get('proveedor'))
+                lote.fecha_vencimiento = request.POST.get('fecha_vencimiento') or None
+                lote.save()
+                messages.success(request, f'Lote {lote.code_lote} actualizado correctamente.')
+            except Exception as e:
+                messages.error(request, f'Error al actualizar lote: {e}')
+            return redirect('gestionar_inventario')
+
+        elif action == 'delete_lote':
+            try:
+                lote_id = request.POST.get('lote_id')
+                lote = get_object_or_404(Lote, id=lote_id)
+                code_lote = lote.code_lote
+                lote.delete()
+                messages.success(request, f'Lote {code_lote} eliminado correctamente.')
+            except Exception as e:
+                messages.error(request, f'Error al eliminar lote: {e}')
+            return redirect('gestionar_inventario')
+
         elif action == 'assign_productos':
             try:
                 lote_id = request.POST.get('lote_id')
                 productos_ids = request.POST.getlist('productos_ids')
-                cantidad = int(request.POST.get('cantidad', 1))
+                cantidades = request.POST.getlist('cantidades[]', [])
                 
                 lote = get_object_or_404(Lote, id=lote_id)
                 productos_a_asignar = Producto.objects.filter(id__in=productos_ids)
                 
                 with transaction.atomic(): # Asegurar atomicidad
-                    for producto in productos_a_asignar:
-                        producto.stock += cantidad
-                        producto.save()
-                        lote.productos.add(producto) # Añadir a la relación M2M
+                    # Si se proporcionaron cantidades individuales para cada producto
+                    if cantidades and len(cantidades) == len(productos_ids):
+                        for i, producto in enumerate(productos_a_asignar):
+                            cantidad = int(cantidades[i])
+                            producto.stock += cantidad
+                            producto.save()
+                            # Guardar la relación con la cantidad específica
+                            # Aquí podríamos usar una tabla intermedia personalizada si existiera
+                            lote.productos.add(producto)
+                    else:
+                        # Usar la cantidad general para todos los productos
+                        cantidad = int(request.POST.get('cantidad', 1))
+                        for producto in productos_a_asignar:
+                            producto.stock += cantidad
+                            producto.save()
+                            lote.productos.add(producto)
                 
                 messages.success(request, f'{len(productos_a_asignar)} producto(s) añadidos al lote {lote.code_lote} y stock actualizado.')
             except Exception as e:
                 messages.error(request, f'Error al asignar productos al lote: {e}')
             return redirect('gestionar_inventario')
 
-    lotes = Lote.objects.all().order_by('-fecha_registro') # Corregido orden
+        elif action == 'ver_productos_lote':
+            try:
+                lote_id = request.POST.get('lote_id')
+                lote = get_object_or_404(Lote, id=lote_id)
+                productos = lote.productos.all()
+                return render(request, 'Tienda/productos_lote.html', {
+                    'lote': lote,
+                    'productos': productos
+                })
+            except Exception as e:
+                messages.error(request, f'Error al ver productos del lote: {e}')
+                return redirect('gestionar_inventario')
+
+    lotes = Lote.objects.all().order_by('-fecha_registro')
     proveedores = Proveedor.objects.all()
-    productos_disponibles = Producto.objects.all() # Para el modal
+    productos_disponibles = Producto.objects.all()
     return render(request, 'Tienda/gestionar_inventario.html', {
         'lotes': lotes,
         'proveedores': proveedores,
-        'productos_disponibles': productos_disponibles # Pasar productos al template
+        'productos_disponibles': productos_disponibles
     })
 
 @login_required
@@ -374,11 +532,28 @@ def gestionar_proveedores(request):
             try:
                 proveedor = get_object_or_404(Proveedor, id=proveedor_id)
                 nombre_proveedor = proveedor.nombre_proveedor
-                proveedor.delete()
-                messages.success(request, f'Proveedor "{nombre_proveedor}" eliminado.')
+                # Verificar si hay lotes asociados antes de eliminar
+                lotes_asociados = Lote.objects.filter(proveedor=proveedor).exists()
+                if lotes_asociados:
+                    messages.error(request, f'No se puede eliminar el proveedor "{nombre_proveedor}" porque tiene lotes asociados.')
+                else:
+                    proveedor.delete()
+                    messages.success(request, f'Proveedor "{nombre_proveedor}" eliminado.')
             except Exception as e:
-                # Considerar protección de eliminación si hay lotes asociados
                 messages.error(request, f'Error al eliminar proveedor: {e}')
+        
+        elif action == 'get_proveedor':
+            try:
+                proveedor = get_object_or_404(Proveedor, id=proveedor_id)
+                return JsonResponse({
+                    'id': proveedor.id,
+                    'nombre_proveedor': proveedor.nombre_proveedor,
+                    'direccion': proveedor.direccion,
+                    'telefono': proveedor.telefono,
+                    'email': proveedor.email or ''
+                })
+            except Exception as e:
+                return JsonResponse({'error': str(e)}, status=400)
         
         return redirect('gestionar_proveedores') # Redirigir después de cualquier acción POST
 

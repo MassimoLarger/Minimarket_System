@@ -19,12 +19,21 @@ class Proveedor(models.Model):
 class Lote(models.Model):
     code_lote = models.CharField(max_length=50)
     fecha_registro = models.DateField(auto_now_add=True)
-    fecha_vencimiento = models.DateField()
+    fecha_vencimiento = models.DateField(null=True, blank=True)
     proveedor = models.ForeignKey(Proveedor, on_delete=models.CASCADE)
-    productos = models.ManyToManyField('Producto')
+    productos = models.ManyToManyField('Producto', through='LoteProducto')
     
     def __str__(self):
         return f"{self.code_lote} - {self.proveedor} - {self.fecha_vencimiento}"
+
+class LoteProducto(models.Model):
+    lote = models.ForeignKey(Lote, on_delete=models.CASCADE)
+    producto = models.ForeignKey('Producto', on_delete=models.CASCADE)
+    cantidad = models.IntegerField(default=1)
+    fecha_agregado = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.lote.code_lote} - {self.producto.nombre} x{self.cantidad}"
 
 class Producto(models.Model):
     nombre = models.CharField(max_length=100)
