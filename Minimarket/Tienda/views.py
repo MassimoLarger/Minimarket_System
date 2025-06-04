@@ -10,6 +10,7 @@ from .forms import LoginForm
 from .models import Producto, Oferta, Venta, DetalleVenta, Proveedor, Lote, Oferta_vencimiento, Oferta_producto
 from django.db.models import Q
 from django.contrib.auth import update_session_auth_hash # Para mantener sesión tras cambio de contraseña
+from django.views.decorators.csrf import csrf_exempt
 
 # Helper para verificar si es superusuario
 def is_superuser(user):
@@ -44,6 +45,131 @@ def logout_view(request):
     logout(request)
     messages.info(request, 'Has cerrado sesión correctamente')
     return redirect('login')
+
+@login_required
+@user_passes_test(is_superuser, login_url='home')
+def gestionar_productos(request):
+    # Obtener todos los productos para mostrar en la tabla
+    productos = Producto.objects.all().order_by('nombre')
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        producto_id = request.POST.get('producto_id')
+
+        if action == 'add_producto':
+            try:
+                nombre = request.POST.get('nombre')
+                codigo_barras = request.POST.get('codigo_barras')
+                stock = request.POST.get('stock')
+                precio = request.POST.get('precio')
+                costo = request.POST.get('costo')
+                minimal_stock = request.POST.get('minimal_stock')
+                if not all([nombre, codigo_barras, stock, precio, costo, minimal_stock]):
+                    mensaje = 'Todos los campos son obligatorios.'
+                    if is_ajax:
+                        return JsonResponse({'success': False, 'error': mensaje}, status=400)
+                    else:
+                        messages.error(request, mensaje)
+                        return redirect('gestionar_productos')
+                producto = Producto.objects.create(
+                    nombre=nombre,
+                    codigo_barras=codigo_barras,
+                    stock=int(stock),
+                    precio=float(precio),
+                    costo=float(costo),
+                    minimal_stock=int(minimal_stock)
+                )
+                if is_ajax:
+                    return JsonResponse({'success': True, 'producto': {'id': producto.id, 'nombre': producto.nombre}})
+                else:
+                    messages.success(request, 'Producto añadido correctamente.')
+                    return redirect('gestionar_productos')
+            except Exception as e:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': str(e)}, status=400)
+                else:
+                    messages.error(request, f'Error al añadir producto: {e}')
+                    return redirect('gestionar_productos')
+
+        elif action == 'edit_producto' and producto_id:
+            try:
+                producto = get_object_or_404(Producto, id=producto_id)
+                nombre = request.POST.get('nombre')
+                codigo_barras = request.POST.get('codigo_barras')
+                stock = request.POST.get('stock')
+                precio = request.POST.get('precio')
+                costo = request.POST.get('costo')
+                minimal_stock = request.POST.get('minimal_stock')
+                if not all([nombre, codigo_barras, stock, precio, costo, minimal_stock]):
+                    mensaje = 'Todos los campos son obligatorios.'
+                    if is_ajax:
+                        return JsonResponse({'success': False, 'error': mensaje}, status=400)
+                    else:
+                        messages.error(request, mensaje)
+                        return redirect('gestionar_productos')
+                producto.nombre = nombre
+                producto.codigo_barras = codigo_barras
+                producto.stock = int(stock)
+                producto.precio = float(precio)
+                producto.costo = float(costo)
+                producto.minimal_stock = int(minimal_stock)
+                producto.save()
+                if is_ajax:
+                    return JsonResponse({'success': True})
+                else:
+                    messages.success(request, 'Producto editado correctamente.')
+                    return redirect('gestionar_productos')
+            except Exception as e:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': str(e)}, status=400)
+                else:
+                    messages.error(request, f'Error al editar producto: {e}')
+                    return redirect('gestionar_productos')
+
+        elif action == 'delete_producto' and producto_id:
+            try:
+                producto = get_object_or_404(Producto, id=producto_id)
+                producto.delete()
+                if is_ajax:
+                    return JsonResponse({'success': True})
+                else:
+                    messages.success(request, 'Producto eliminado correctamente.')
+                    return redirect('gestionar_productos')
+            except Exception as e:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': str(e)}, status=400)
+                else:
+                    messages.error(request, f'Error al eliminar producto: {e}')
+                    return redirect('gestionar_productos')
+
+        elif action == 'get_producto' and producto_id:
+            try:
+                producto = get_object_or_404(Producto, id=producto_id)
+                return JsonResponse({
+                    'success': True,
+                    'producto': {
+                        'id': producto.id,
+                        'nombre': producto.nombre,
+                        'codigo_barras': producto.codigo_barras,
+                        'stock': producto.stock,
+                        'precio': float(producto.precio),
+                        'costo': float(producto.costo),
+                        'minimal_stock': producto.minimal_stock
+                    }
+                })
+            except Exception as e:
+                return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+        if is_ajax:
+            return JsonResponse({'success': False, 'error': 'Acción no válida'}, status=400)
+
+    # Recargar la lista actualizada de productos
+    productos = Producto.objects.all().order_by('nombre')
+    context = {
+        'productos': productos
+    }
+    return render(request, 'Tienda/productos.html', context)
 
 @login_required
 def nueva_venta(request):
@@ -227,80 +353,6 @@ def ofertas(request):
         context['productos'] = Producto.objects.all()
 
     return render(request, 'Tienda/ofertas.html', context)
-
-@login_required
-def productos(request):
-    if request.method == 'POST' and request.user.is_superuser:
-        action = request.POST.get('action')
-        if action == 'add_producto':
-            try:
-                Producto.objects.create(
-                    nombre=request.POST.get('nombre'),
-                    codigo_barras=request.POST.get('codigo_barras'),
-                    precio=request.POST.get('precio'),
-                    costo=request.POST.get('costo'),
-                    stock=request.POST.get('stock', 0),
-                    minimal_stock=request.POST.get('minimal_stock', 0),
-                    descripcion=request.POST.get('descripcion', '')
-                )
-                messages.success(request, 'Producto añadido correctamente.')
-            except Exception as e:
-                # Considerar validación de código de barras único
-                if 'UNIQUE constraint failed' in str(e):
-                     messages.error(request, f'Error al añadir producto: Ya existe un producto con el código de barras {request.POST.get("codigo_barras")}.')
-                else:
-                    messages.error(request, f'Error al añadir producto: {e}')
-            return redirect('productos')
-        elif action == 'edit_producto':
-            try:
-                producto_id = request.POST.get('producto_id')
-                producto = get_object_or_404(Producto, id=producto_id)
-                producto.nombre = request.POST.get('nombre')
-                producto.codigo_barras = request.POST.get('codigo_barras')
-                producto.precio = request.POST.get('precio')
-                producto.costo = request.POST.get('costo')
-                producto.stock = request.POST.get('stock', 0)
-                producto.minimal_stock = request.POST.get('minimal_stock', 0)
-                producto.descripcion = request.POST.get('descripcion', '')
-                producto.save()
-                messages.success(request, f'Producto "{producto.nombre}" actualizado correctamente.')
-            except Exception as e:
-                if 'UNIQUE constraint failed' in str(e):
-                    messages.error(request, f'Error al actualizar producto: Ya existe un producto con el código de barras {request.POST.get("codigo_barras")}.')
-                else:
-                    messages.error(request, f'Error al actualizar producto: {e}')
-            return redirect('productos')
-        elif action == 'delete_producto':
-            try:
-                producto_id = request.POST.get('producto_id')
-                producto = get_object_or_404(Producto, id=producto_id)
-                nombre_producto = producto.nombre
-                producto.delete()
-                messages.success(request, f'Producto "{nombre_producto}" eliminado correctamente.')
-            except Exception as e:
-                messages.error(request, f'Error al eliminar producto: {e}')
-            return redirect('productos')
-
-    # Lógica GET existente
-    query = request.GET.get('q', '')
-    codigo_barras = request.GET.get('codigo', '')
-    
-    if codigo_barras:
-        productos_lista = Producto.objects.filter(codigo_barras=codigo_barras)
-    elif query:
-        productos_lista = Producto.objects.filter(
-            Q(nombre__icontains=query) | 
-            Q(descripcion__icontains=query) | 
-            Q(codigo_barras__icontains=query)
-        )
-    else:
-        productos_lista = Producto.objects.all()
-    
-    return render(request, 'Tienda/productos.html', {
-        'productos': productos_lista,
-        'query': query,
-        'es_admin': request.user.is_superuser
-    })
 
 # API para escaneo de código de barras
 @login_required
@@ -513,7 +565,7 @@ def gestionar_proveedores(request):
                     nombre_proveedor=request.POST.get('nombre_proveedor'),
                     direccion=request.POST.get('direccion'),
                     telefono=request.POST.get('telefono'),
-                    email=request.POST.get('email') or None
+                    rut=request.POST.get('rut')
                 )
                 messages.success(request, 'Proveedor añadido correctamente.')
                 if is_ajax:
@@ -539,7 +591,6 @@ def gestionar_proveedores(request):
                 proveedor.nombre_proveedor = request.POST.get('nombre_proveedor')
                 proveedor.direccion = request.POST.get('direccion')
                 proveedor.telefono = request.POST.get('telefono')
-                proveedor.email = request.POST.get('email') or None
                 proveedor.save()
                 messages.success(request, f'Proveedor "{proveedor.nombre_proveedor}" actualizado correctamente.')
                 if is_ajax:
@@ -557,7 +608,16 @@ def gestionar_proveedores(request):
         
         elif action == 'delete_proveedor' and proveedor_id:
             try:
-                proveedor = get_object_or_404(Proveedor, id=proveedor_id)
+                proveedor = Proveedor.objects.filter(id=proveedor_id).first()
+                if not proveedor:
+                    mensaje = f'No se encontró el proveedor con ID {proveedor_id}.'
+                    messages.error(request, mensaje)
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': False,
+                            'message': mensaje
+                        }, status=400)
+                    return redirect('gestionar_proveedores')
                 nombre_proveedor = proveedor.nombre_proveedor
                 lotes_asociados = Lote.objects.filter(proveedor=proveedor).exists()
                 if lotes_asociados:
@@ -594,7 +654,7 @@ def gestionar_proveedores(request):
                     'nombre_proveedor': proveedor.nombre_proveedor,
                     'direccion': proveedor.direccion,
                     'telefono': proveedor.telefono,
-                    'email': proveedor.email or ''
+                    'rut': proveedor.rut
                 })
             except Exception as e:
                 return JsonResponse({'error': str(e)}, status=400)

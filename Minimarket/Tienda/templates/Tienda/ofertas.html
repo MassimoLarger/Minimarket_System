@@ -48,10 +48,10 @@
                                     <tbody>
                                         {% for oferta in ofertas_activas %}
                                         <tr>
-                                            <td>{{ oferta.producto.nombre }}</td>
-                                            <td>{{ oferta.porcentaje_descuento }}%</td>
-                                            <td>${{ oferta.producto.precio }}</td>
-                                            <td class="text-success">${{ oferta.producto.precio|floatformat:2 }}</td>
+                                            <td>{{ oferta_producto in oferta.ofertas_producto.all }}</td>
+                                            <td>{{ oferta.descuento_porcetaje }}%</td>
+                                            <td>${{ oferta_producto.producto_id.precio }}</td>
+                                            <td class="text-success">${{ oferta_producto.producto_id.precio|floatformat:2 }}</td>
                                             <td>{{ oferta.fecha_inicio|date:"d/m/Y" }} - {{ oferta.fecha_fin|date:"d/m/Y" }}</td>
                                             <td>
                                                 <button class="btn btn-sm btn-warning editar-oferta" data-id="{{ oferta.id }}">
@@ -92,17 +92,11 @@
                                     <tbody>
                                         {% for oferta in todas_ofertas %}
                                         <tr>
-                                            <td>{{ oferta.producto.nombre }}</td>
-                                            <td>{{ oferta.porcentaje_descuento }}%</td>
+                                            <td>{{ oferta_producto in oferta.ofertas_producto.all }}</td>
+                                            <td>{{ oferta.descuento_porcetaje }}%</td>
                                             <td>{{ oferta.fecha_inicio|date:"d/m/Y" }} - {{ oferta.fecha_fin|date:"d/m/Y" }}</td>
-                                            <td>
-                                                {% if oferta.activa %}
-                                                <span class="badge bg-success">Activa</span>
-                                                {% else %}
-                                                <span class="badge bg-secondary">Inactiva</span>
-                                                {% endif %}
-                                            </td>
-                                            <td>{{ oferta.creado_por.username }}</td>
+                                            <td>-</td>
+                                            <td>-</td>
                                             <td>
                                                 <button class="btn btn-sm btn-warning editar-oferta" data-id="{{ oferta.id }}">
                                                     <i class="fas fa-edit"></i>

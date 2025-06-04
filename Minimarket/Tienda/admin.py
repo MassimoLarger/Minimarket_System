@@ -9,12 +9,13 @@ class MinimercadoAdmin(admin.ModelAdmin):
     list_per_page = 15
 
 class ProveedorAdmin(admin.ModelAdmin):
-    search_fields = ['nombre_proveedor', 'direccion', 'telefono']
+    search_fields = ['nombre_proveedor', 'direccion', 'telefono', 'rut']
+    list_display = ('nombre_proveedor', 'rut', 'direccion', 'telefono')
     list_per_page = 15
 
 class LoteAdmin(admin.ModelAdmin):
     search_fields = ['code_lote', 'proveedor__nombre_proveedor']
-    list_filter = ['fecha_registro', 'fecha_vencimiento', 'proveedor']
+    list_filter = ['proveedor']
     list_per_page = 15
 
 class ProductoAdmin(admin.ModelAdmin):

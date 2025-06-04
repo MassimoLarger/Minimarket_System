@@ -12,7 +12,7 @@
             <div class="row">
                 <div class="col-md-8">
                     <div class="input-group mb-3">
-                        <input type="text" id="buscar-proveedor" class="form-control" placeholder="Buscar por nombre, dirección, teléfono o email...">
+                        <input type="text" id="buscar-proveedor" class="form-control" placeholder="Buscar por nombre, RUT, dirección o teléfono...">
                         <button class="btn btn-primary" type="button" id="btn-buscar">
                             <i class="fas fa-search"></i> Buscar
                         </button>
@@ -22,8 +22,8 @@
                 <div class="col-md-4">
                     <select id="filtro-proveedor" class="form-select">
                         <option value="">Todos los proveedores</option>
-                        <option value="con-email">Con email</option>
-                        <option value="sin-email">Sin email</option>
+                        <option value="nombre">Ordenar por nombre</option>
+                        <option value="direccion">Ordenar por dirección</option>
                     </select>
                 </div>
             </div>
@@ -46,28 +46,27 @@
                     <thead>
                         <tr>
                             <th>Nombre</th>
+                            <th>RUT</th>
                             <th>Dirección</th>
                             <th>Teléfono</th>
-                            <th>Email</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for proveedor in proveedores %}
-                        <tr class="fila-proveedor" data-nombre="{{ proveedor.nombre_proveedor|lower }}" data-direccion="{{ proveedor.direccion|lower }}" data-telefono="{{ proveedor.telefono }}" data-email="{{ proveedor.email|default:'' }}">
+                        <tr class="fila-proveedor" data-nombre="{{ proveedor.nombre_proveedor|lower }}" data-rut="{{ proveedor.rut }}" data-direccion="{{ proveedor.direccion|lower }}" data-telefono="{{ proveedor.telefono }}">
                             <td>{{ proveedor.nombre_proveedor }}</td>
+                            <td>{{ proveedor.rut }}</td>
                             <td>{{ proveedor.direccion }}</td>
                             <td>{{ proveedor.telefono }}</td>
-                            <td>{{ proveedor.email|default:"N/A" }}</td>
                             <td>
-                                <!-- Acciones para proveedores (editar, eliminar) -->
-                                <button class="btn btn-sm btn-warning editar-proveedor" data-id="{{ proveedor.id }}" data-nombre="{{ proveedor.nombre_proveedor }}" data-direccion="{{ proveedor.direccion }}" data-telefono="{{ proveedor.telefono }}" data-email="{{ proveedor.email|default:'' }}"><i class="fas fa-edit"></i></button>
+                                <button class="btn btn-sm btn-warning editar-proveedor" data-id="{{ proveedor.id }}" data-nombre="{{ proveedor.nombre_proveedor }}" data-rut="{{ proveedor.rut }}" data-direccion="{{ proveedor.direccion }}" data-telefono="{{ proveedor.telefono }}"><i class="fas fa-edit"></i></button>
                                 <button class="btn btn-sm btn-danger eliminar-proveedor" data-id="{{ proveedor.id }}"><i class="fas fa-trash"></i></button>
                             </td>
                         </tr>
                         {% empty %}
                         <tr id="no-resultados">
-                            <td colspan="5" class="text-center">No hay proveedores registrados.</td>
+                            <td colspan="4" class="text-center">No hay proveedores registrados.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -98,7 +97,12 @@
                     <input type="hidden" name="proveedor_id" id="proveedor-id">
                     <div class="mb-3">
                         <label for="nombre_proveedor" class="form-label">Nombre del Proveedor</label>
-                        <input type="text" class="form-control" id="nombre_proveedor" name="nombre_proveedor" required>
+                        <input type="text" class="form-control" id="nombre_proveedor" name="nombre_proveedor" required pattern="[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+">
+                    </div>
+                    <div class="mb-3">
+                        <label for="rut" class="form-label">RUT</label>
+                        <input type="text" class="form-control" id="rut" name="rut" required pattern="[0-9]+-[0-9kK]" maxlength="15">
+                        <div class="form-text">Formato: 12345678-9 o 12345678-K</div>
                     </div>
                     <div class="mb-3">
                         <label for="direccion" class="form-label">Dirección</label>
@@ -108,10 +112,6 @@
                         <label for="telefono" class="form-label">Teléfono</label>
                         <input type="text" class="form-control" id="telefono" name="telefono" required pattern="[0-9]+">
                         <div class="form-text">Solo números, sin espacios ni guiones.</div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="email" class="form-label">Email (Opcional)</label>
-                        <input type="email" class="form-control" id="email" name="email">
                     </div>
                 </form>
             </div>
@@ -145,41 +145,31 @@
         const textoBusqueda = buscarInput.value.toLowerCase().trim();
         const filtro = filtroSelect.value;
         let hayResultados = false;
-
-        // Obtener todas las filas de proveedores (para asegurar que estamos trabajando con la colección actualizada)
         const filasActuales = document.querySelectorAll('.fila-proveedor');
-
-        filasActuales.forEach(fila => {
+        let filasArray = Array.from(filasActuales);
+        // Ordenar según filtro
+        if (filtro === 'nombre') {
+            filasArray.sort((a, b) => a.dataset.nombre.localeCompare(b.dataset.nombre));
+        } else if (filtro === 'direccion') {
+            filasArray.sort((a, b) => a.dataset.direccion.localeCompare(b.dataset.direccion));
+        }
+        // Limpiar y volver a agregar filas ordenadas
+        const tbody = document.querySelector('#tabla-proveedores tbody');
+        tbody.innerHTML = '';
+        filasArray.forEach(fila => {
             const nombre = fila.dataset.nombre || '';
+            const rut = fila.dataset.rut || '';
             const direccion = fila.dataset.direccion || '';
             const telefono = fila.dataset.telefono || '';
-            const email = fila.dataset.email || '';
-            
-            // Aplicar filtro de email
-            let pasaFiltroEmail = true;
-            if (filtro === 'con-email' && !email) {
-                pasaFiltroEmail = false;
-            } else if (filtro === 'sin-email' && email) {
-                pasaFiltroEmail = false;
-            }
-            
-            // Aplicar búsqueda de texto
-            const pasaBusqueda = textoBusqueda === '' || 
-                nombre.includes(textoBusqueda) || 
-                direccion.includes(textoBusqueda) || 
-                telefono.includes(textoBusqueda) ||
-                (email && email.includes(textoBusqueda));
-            
-            // Mostrar u ocultar fila
-            if (pasaFiltroEmail && pasaBusqueda) {
+            const pasaBusqueda = textoBusqueda === '' || nombre.includes(textoBusqueda) || rut.includes(textoBusqueda) || direccion.includes(textoBusqueda) || telefono.includes(textoBusqueda);
+            if (pasaBusqueda) {
                 fila.style.display = '';
+                tbody.appendChild(fila);
                 hayResultados = true;
             } else {
                 fila.style.display = 'none';
             }
         });
-
-        // Mostrar mensaje si no hay resultados
         const noResultadosRow = document.getElementById('no-resultados');
         if (noResultadosRow) {
             if (hayResultados) {
@@ -239,15 +229,15 @@
                 const btn = event.currentTarget;
                 const proveedorId = btn.dataset.id;
                 const nombre = btn.dataset.nombre;
+                const rut = btn.dataset.rut;
                 const direccion = btn.dataset.direccion;
                 const telefono = btn.dataset.telefono;
-                const email = btn.dataset.email;
                 
                 // Llenar el formulario con los datos del proveedor
                 document.getElementById('nombre_proveedor').value = nombre;
+                document.getElementById('rut').value = rut;
                 document.getElementById('direccion').value = direccion;
                 document.getElementById('telefono').value = telefono;
-                document.getElementById('email').value = email || '';
                 
                 // Configurar el formulario para edición
                 proveedorActionInput.value = 'edit_proveedor';
@@ -272,32 +262,22 @@
     // Prevenir que el formulario redirija a home
     formProveedor.addEventListener('submit', function(e) {
         e.preventDefault();
-        
-        // Validar el formulario
         if (!this.checkValidity()) {
             e.stopPropagation();
             this.classList.add('was-validated');
             return;
         }
-        
-        // Obtener los datos del formulario
         const formData = new FormData(this);
-        const action = formData.get('action');
-        const proveedorId = formData.get('proveedor_id');
-        const nombre = formData.get('nombre_proveedor');
-        const direccion = formData.get('direccion');
-        const telefono = formData.get('telefono');
-        const email = formData.get('email') || '';
-        
-        // Enviar los datos mediante fetch
-        // Función para obtener el token CSRF de la cookie
+        const params = new URLSearchParams();
+        for (const pair of formData.entries()) {
+            params.append(pair[0], pair[1]);
+        }
         function getCookie(name) {
             let cookieValue = null;
             if (document.cookie && document.cookie !== "") {
                 const cookies = document.cookie.split(';');
                 for (let i = 0; i < cookies.length; i++) {
                     const cookie = cookies[i].trim();
-                    // ¿Esta cookie comienza con el nombre que queremos?
                     if (cookie.substring(0, name.length + 1) === (name + '=')) {
                         cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
                         break;
@@ -306,13 +286,16 @@
             }
             return cookieValue;
         }
-        fetch(this.action, {
+        // Usar la URL de Django directamente para evitar errores de [object HTMLInputElement]
+        const postUrl = "{% url 'gestionar_proveedores' %}";
+        fetch(postUrl, {
             method: 'POST',
-            body: formData,
+            body: params,
             credentials: 'same-origin',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': getCookie('csrftoken')
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/x-www-form-urlencoded'
             }
         })
         .then(response => {
@@ -325,68 +308,53 @@
             }
         })
         .then(data => {
-            // Cerrar el modal
             nuevoProveedorModal.hide();
-            
-            if (action === 'add_proveedor') {
-                // Añadir nueva fila a la tabla
+            if (formData.get('action') === 'add_proveedor') {
                 const tbody = document.querySelector('#tabla-proveedores tbody');
                 const noResultados = document.getElementById('no-resultados');
-                // Si no hay resultados, ocultarlo
                 if (noResultados) {
                     noResultados.style.display = 'none';
                 }
-                // Crear nueva fila
                 const nuevaFila = document.createElement('tr');
                 nuevaFila.className = 'fila-proveedor';
-                nuevaFila.dataset.nombre = nombre.toLowerCase();
-                nuevaFila.dataset.direccion = direccion.toLowerCase();
-                nuevaFila.dataset.telefono = telefono;
-                nuevaFila.dataset.email = email;
+                nuevaFila.dataset.nombre = formData.get('nombre_proveedor').toLowerCase();
+                nuevaFila.dataset.rut = formData.get('rut');
+                nuevaFila.dataset.direccion = formData.get('direccion').toLowerCase();
+                nuevaFila.dataset.telefono = formData.get('telefono');
                 nuevaFila.innerHTML = `
-                    <td>${nombre}</td>
-                    <td>${direccion}</td>
-                    <td>${telefono}</td>
-                    <td>${email || 'N/A'}</td>
+                    <td>${formData.get('nombre_proveedor')}</td>
+                    <td>${formData.get('rut')}</td>
+                    <td>${formData.get('direccion')}</td>
+                    <td>${formData.get('telefono')}</td>
                     <td>
-                        <button class="btn btn-sm btn-warning editar-proveedor" data-id="${data.proveedor.id}" data-nombre="${nombre}" data-direccion="${direccion}" data-telefono="${telefono}" data-email="${email}"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-warning editar-proveedor" data-id="${data.proveedor.id}" data-nombre="${formData.get('nombre_proveedor')}" data-rut="${formData.get('rut')}" data-direccion="${formData.get('direccion')}" data-telefono="${formData.get('telefono')}"><i class="fas fa-edit"></i></button>
                         <button class="btn btn-sm btn-danger eliminar-proveedor" data-id="${data.proveedor.id}"><i class="fas fa-trash"></i></button>
                     </td>
                 `;
                 tbody.appendChild(nuevaFila);
-                // Configurar eventos para los nuevos botones
                 configurarBotonesEditar();
                 configurarBotonesEliminar();
-            } else if (action === 'edit_proveedor') {
-                // Actualizar fila existente
-                const fila = document.querySelector(`button.editar-proveedor[data-id="${proveedorId}"]`).closest('tr');
+            } else if (formData.get('action') === 'edit_proveedor') {
+                const fila = document.querySelector(`button.editar-proveedor[data-id="${formData.get('proveedor_id')}"]`).closest('tr');
                 if (fila) {
-                    // Actualizar datos de la fila
-                    fila.dataset.nombre = nombre.toLowerCase();
-                    fila.dataset.direccion = direccion.toLowerCase();
-                    fila.dataset.telefono = telefono;
-                    fila.dataset.email = email;
-                    // Actualizar contenido visible
-                    fila.cells[0].textContent = nombre;
-                    fila.cells[1].textContent = direccion;
-                    fila.cells[2].textContent = telefono;
-                    fila.cells[3].textContent = email || 'N/A';
-                    // Actualizar atributos de los botones
+                    fila.dataset.nombre = formData.get('nombre_proveedor').toLowerCase();
+                    fila.dataset.rut = formData.get('rut');
+                    fila.dataset.direccion = formData.get('direccion').toLowerCase();
+                    fila.dataset.telefono = formData.get('telefono');
+                    fila.cells[0].textContent = formData.get('nombre_proveedor');
+                    fila.cells[1].textContent = formData.get('rut');
+                    fila.cells[2].textContent = formData.get('direccion');
+                    fila.cells[3].textContent = formData.get('telefono');
                     const btnEditar = fila.querySelector('.editar-proveedor');
-                    btnEditar.dataset.nombre = nombre;
-                    btnEditar.dataset.direccion = direccion;
-                    btnEditar.dataset.telefono = telefono;
-                    btnEditar.dataset.email = email;
-                    // Reconfigurar los event listeners para asegurar que funcionen correctamente
+                    btnEditar.dataset.nombre = formData.get('nombre_proveedor');
+                    btnEditar.dataset.rut = formData.get('rut');
+                    btnEditar.dataset.direccion = formData.get('direccion');
+                    btnEditar.dataset.telefono = formData.get('telefono');
                     configurarBotonesEditar();
                     configurarBotonesEliminar();
                 }
             }
-            
-            // Mostrar mensaje de éxito
             alert(data.message || 'Operación completada con éxito');
-            
-            // Aplicar filtros actuales
             filtrarProveedores();
         })
         .catch(error => {
@@ -416,7 +384,10 @@
             .then(response => {
                 if (response.ok) {
                     // Eliminar la fila de la tabla o recargar la página
-                    const fila = event.currentTarget.closest('tr');
+                    let fila = null;
+                    if (event.currentTarget) {
+                        fila = event.currentTarget.closest('tr');
+                    }
                     if (fila) {
                         fila.remove();
                         // Si no quedan filas, mostrar mensaje de no resultados

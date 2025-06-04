@@ -2,253 +2,132 @@
 
 {% block content %}
 <div class="container mt-4">
-    <div class="row">
-        <div class="col-lg-12 mb-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-warning text-white">
-                    <h4 class="mb-0"><i class="fas fa-box me-2"></i>Productos</h4>
+    <!-- Barra de búsqueda -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <form method="GET" action="{% url 'gestionar_productos' %}">
+                <div class="input-group">
+                    <input type="text" class="form-control" name="q" value="{{ query }}" placeholder="Buscar productos...">
+                    <button class="btn btn-primary" type="submit">
+                        <i class="fas fa-search"></i> Buscar
+                    </button>
                 </div>
-                <div class="card-body">
-                    <!-- Barra de búsqueda -->
-                    <div class="row mb-4">
-                        <div class="col-md-8">
-                            <form method="get" action="{% url 'productos' %}" class="d-flex">
-                                <div class="input-group">
-                                    <input type="text" class="form-control" placeholder="Buscar por nombre, descripción o código" name="q" value="{{ query }}">
-                                    <button class="btn btn-primary" type="submit">
-                                        <i class="fas fa-search"></i>
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="input-group">
-                                <input type="text" class="form-control" placeholder="Escanear código de barras" id="codigo-barras">
-                                <button class="btn btn-success" type="button" id="btn-escanear">
-                                    <i class="fas fa-barcode"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    {% if es_admin %}
-                    <!-- Vista para Administrador -->
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5><i class="fas fa-list me-2"></i>Listado de Productos</h5>
-                        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#nuevoProductoModal">
-                            <i class="fas fa-plus-circle me-2"></i>Añadir Producto
+            </form>
+        </div>
+        {% if es_superadmin %}
+        <div class="col-md-6 text-end">
+            <button class="btn btn-success mb-3" data-bs-toggle="modal" data-bs-target="#agregarModal">
+                <i class="fas fa-plus"></i> Agregar Producto
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Buscador y botón agregar -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <input type="text" id="searchInput" class="form-control" placeholder="Buscar producto...">
+        </div>
+        {% if user.is_superuser %}
+        <div class="col-md-6 text-end">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#agregarModal">Agregar Producto</button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Tabla de productos -->
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Nombre</th>
+                    <th>Código</th>
+                    <th>Stock</th>
+                    <th>Precio</th>
+                    <th>Costo</th>
+                    <th>Stock Mín.</th>
+                    {% if es_superadmin %}
+                    <th class="text-end">Acciones</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for producto in productos %}
+                <tr class="producto-row" data-id="{{ producto.id }}"
+                    data-nombre="{{ producto.nombre }}"
+                    data-codigo_barras="{{ producto.codigo_barras }}"
+                    data-stock="{{ producto.stock }}"
+                    data-precio="{{ producto.precio }}"
+                    data-costo="{{ producto.costo }}"
+                    data-minimal_stock="{{ producto.minimal_stock }}">
+                    <td>{{ producto.nombre }}</td>
+                    <td>{{ producto.codigo_barras }}</td>
+                    <td>{{ producto.stock }}</td>
+                    <td>${{ producto.precio|floatformat:0 }}</td>
+                    <td>${{ producto.costo|floatformat:0 }}</td>
+                    <td>{{ producto.minimal_stock }}</td>
+                    {% if es_superadmin %}
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-warning editar-btn" data-id="{{ producto.id }}">
+                            <i class="fas fa-edit"></i>
                         </button>
-                    </div>
-                    
-                    {% if productos %}
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Código</th>
-                                    <th>Nombre</th>
-                                    <th>Precio</th>
-                                    <th>Stock</th>
-                                    <th>Última Actualización</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for producto in productos %}
-                                <tr>
-                                    <td>{{ producto.codigo_barras }}</td>
-                                    <td>{{ producto.nombre }}</td>
-                                    <td>${{ producto.precio }}</td>
-                                    <td>
-                                        {% if producto.stock <= 5 %}
-                                        <span class="text-danger">{{ producto.stock }}</span>
-                                        {% else %}
-                                        <span class="text-success">{{ producto.stock }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ producto.fecha_actualizacion|date:"d/m/Y H:i" }}</td>
-                                    <td>
-                                        <button class="btn btn-sm btn-info ver-producto" data-id="{{ producto.id }}">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-warning editar-producto" data-id="{{ producto.id }}">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-danger eliminar-producto" data-id="{{ producto.id }}">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        No se encontraron productos{% if query %} con el término "{{ query }}"{% endif %}.
-                    </div>
+                        <button class="btn btn-sm btn-danger borrar-btn ms-1" data-id="{{ producto.id }}">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </td>
                     {% endif %}
-                    {% else %}
-                    <!-- Vista para Empleado Normal -->
-                    <div class="alert alert-info mb-4">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Consulta información detallada de los productos disponibles.
-                    </div>
-                    
-                    {% if productos %}
-                    <div class="row">
-                        {% for producto in productos %}
-                        <div class="col-md-4 mb-4">
-                            <div class="card h-100 border-0 shadow-sm">
-                                <div class="card-header bg-light">
-                                    <h5 class="mb-0 text-truncate">{{ producto.nombre }}</h5>
-                                </div>
-                                <div class="card-body">
-                                    <p class="mb-1"><strong>Código:</strong> {{ producto.codigo_barras }}</p>
-                                    <p class="mb-3"><strong>Descripción:</strong> {{ producto.descripcion|default:"Sin descripción" }}</p>
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <p class="mb-0">Precio:</p>
-                                            <h5 class="text-primary">${{ producto.precio }}</h5>
-                                        </div>
-                                        <div>
-                                            <p class="mb-0">Stock:</p>
-                                            {% if producto.stock <= 5 %}
-                                            <h5 class="text-danger">{{ producto.stock }}</h5>
-                                            {% else %}
-                                            <h5 class="text-success">{{ producto.stock }}</h5>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="card-footer bg-white">
-                                    <button class="btn btn-sm btn-info w-100 ver-producto" data-id="{{ producto.id }}">
-                                        <i class="fas fa-eye me-2"></i>Ver Detalles
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        No se encontraron productos{% if query %} con el término "{{ query }}"{% endif %}.
-                    </div>
-                    {% endif %}
-                    {% endif %}
-                    
-                    <div class="d-flex justify-content-end mt-3">
-                        <a href="{% url 'home' %}" class="btn btn-secondary">
-                            <i class="fas fa-arrow-left me-2"></i>Volver al Inicio
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 
-<!-- Modal para Ver Detalles del Producto -->
-<div class="modal fade" id="verProductoModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-info text-white">
-                <h5 class="modal-title"><i class="fas fa-info-circle me-2"></i>Detalles del Producto</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <h4 id="detalle-nombre" class="mb-3">Nombre del Producto</h4>
-                <div class="row mb-3">
-                    <div class="col-6">
-                        <p class="mb-1">Código de Barras:</p>
-                        <h6 id="detalle-codigo" class="text-muted">123456789</h6>
-                    </div>
-                    <div class="col-6">
-                        <p class="mb-1">Stock:</p>
-                        <h6 id="detalle-stock" class="text-success">10</h6>
-                    </div>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-6">
-                        <p class="mb-1">Precio:</p>
-                        <h5 id="detalle-precio" class="text-primary">$0.00</h5>
-                    </div>
-                    <div class="col-6">
-                        <p class="mb-1">Última Actualización:</p>
-                        <h6 id="detalle-fecha" class="text-muted">01/01/2023</h6>
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <p class="mb-1">Descripción:</p>
-                    <p id="detalle-descripcion" class="border p-2 rounded">Descripción del producto</p>
-                </div>
-                <div id="detalle-oferta" class="alert alert-success d-none">
-                    <i class="fas fa-tags me-2"></i>
-                    <span>Este producto tiene una oferta activa del </span>
-                    <strong id="detalle-descuento">0%</strong>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="fas fa-times me-2"></i>Cerrar
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal para Nuevo Producto (Solo Admin) -->
-{% if es_admin %}
-<!-- Modal para Nuevo Producto -->
-<div class="modal fade" id="nuevoProductoModal" tabindex="-1" aria-labelledby="nuevoProductoModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+<!-- Modales (solo para superadmin) -->
+{% if es_superadmin %}
+<!-- Modal Agregar -->
+<div class="modal fade" id="agregarModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
-                <h5 class="modal-title" id="nuevoProductoModalLabel"><i class="fas fa-plus-circle me-2"></i>Añadir Nuevo Producto</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title"><i class="fas fa-plus"></i> Agregar Producto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form id="form-nuevo-producto" method="post" action="{% url 'productos' %}">
+            <form id="agregarForm" method="POST" action="">
                 {% csrf_token %}
-                <input type="hidden" name="action" value="add_producto">
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label for="nuevo-nombre" class="form-label">Nombre</label>
-                        <input type="text" class="form-control" id="nuevo-nombre" name="nombre" required>
+                        <label class="form-label">Nombre</label>
+                        <input type="text" class="form-control" name="nombre" id="agregar-nombre" required>
                     </div>
                     <div class="mb-3">
-                        <label for="nuevo-codigo" class="form-label">Código de Barras</label>
-                        <input type="text" class="form-control" id="nuevo-codigo" name="codigo_barras" required>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="nuevo-precio" class="form-label">Precio</label>
-                            <input type="number" step="1" class="form-control" id="nuevo-precio" name="precio" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="nuevo-costo" class="form-label">Costo</label>
-                            <input type="number" step="1" class="form-control" id="nuevo-costo" name="costo" required>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="nuevo-stock" class="form-label">Stock Inicial</label>
-                            <input type="number" class="form-control" id="nuevo-stock" name="stock" value="0" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="nuevo-minimal-stock" class="form-label">Stock Mínimo</label>
-                            <input type="number" class="form-control" id="nuevo-minimal-stock" name="minimal_stock" value="0" required>
-                        </div>
+                        <label class="form-label">Código de Barras</label>
+                        <input type="text" class="form-control" name="codigo_barras" id="agregar-codigo_barras" required>
                     </div>
                     <div class="mb-3">
-                        <label for="nuevo-descripcion" class="form-label">Descripción (Opcional)</label>
-                        <textarea class="form-control" id="nuevo-descripcion" name="descripcion" rows="3"></textarea>
+                        <label class="form-label">Stock</label>
+                        <input type="number" class="form-control" name="stock" id="agregar-stock" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Precio</label>
+                        <input type="number" class="form-control" name="precio" id="agregar-precio" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Costo</label>
+                        <input type="number" class="form-control" name="costo" id="agregar-costo" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Stock Mínimo</label>
+                        <input type="number" class="form-control" name="minimal_stock" id="agregar-minimal_stock" required>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success">Guardar Producto</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save"></i> Guardar Producto
+                    </button>
                 </div>
             </form>
         </div>
@@ -256,193 +135,184 @@
 </div>
 {% endif %}
 
-<!-- Modal para Editar Producto (Solo Admin) -->
-<div class="modal fade" id="editarProductoModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
+<!-- Modal Editar -->
+<div class="modal fade" id="editarModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header bg-warning text-white">
-                <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Editar Producto</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title"><i class="fas fa-edit"></i> Editar Producto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                <form id="form-editar-producto" method="post" action="{% url 'productos' %}">
-                    {% csrf_token %}
-                    <input type="hidden" id="editar-id" name="id">
+            <form id="editarForm" method="POST" action="">
+                {% csrf_token %}
+                <input type="hidden" name="producto_id" id="editar-producto-id">
+                <div class="modal-body">
                     <div class="mb-3">
-                        <label for="editar-codigo" class="form-label">Código de Barras</label>
-                        <input type="text" class="form-control" id="editar-codigo" name="codigo_barras" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editar-nombre" class="form-label">Nombre</label>
-                        <input type="text" class="form-control" id="editar-nombre" name="nombre" required>
+                        <label class="form-label">Nombre</label>
+                        <input type="text" class="form-control" name="nombre" id="editar-nombre" required>
                     </div>
                     <div class="mb-3">
-                        <label for="editar-descripcion" class="form-label">Descripción</label>
-                        <textarea class="form-control" id="editar-descripcion" name="descripcion" rows="3"></textarea>
+                        <label class="form-label">Código de Barras</label>
+                        <input type="text" class="form-control" name="codigo_barras" id="editar-codigo_barras" required>
                     </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="editar-precio" class="form-label">Precio</label>
-                            <div class="input-group">
-                                <span class="input-group-text">$</span>
-                                <input type="number" class="form-control" id="editar-precio" name="precio" step="0.01" min="0.01" required>
-                            </div>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="editar-stock" class="form-label">Stock</label>
-                            <input type="number" class="form-control" id="editar-stock" name="stock" min="0" required>
-                        </div>
+                    <div class="mb-3">
+                        <label class="form-label">Stock</label>
+                        <input type="number" class="form-control" name="stock" id="editar-stock" required>
                     </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="fas fa-times me-2"></i>Cancelar
-                </button>
-                <button type="button" class="btn btn-primary" id="btn-guardar-nuevo">
-                    <i class="fas fa-save me-2"></i>Guardar
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal para Confirmar Eliminación (Solo Admin) -->
-<div class="modal fade" id="eliminarProductoModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title"><i class="fas fa-trash me-2"></i>Eliminar Producto</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p>¿Está seguro que desea eliminar este producto?</p>
-                <p><strong>Producto:</strong> <span id="eliminar-nombre"></span></p>
-                <p><strong>Código:</strong> <span id="eliminar-codigo"></span></p>
-                <div class="alert alert-warning">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    Esta acción no se puede deshacer.
+                    <div class="mb-3">
+                        <label class="form-label">Precio</label>
+                        <input type="number" class="form-control" name="precio" id="editar-precio" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Costo</label>
+                        <input type="number" class="form-control" name="costo" id="editar-costo" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Stock Mínimo</label>
+                        <input type="number" class="form-control" name="minimal_stock" id="editar-minimal_stock" required>
+                    </div>
                 </div>
-                <form id="form-eliminar-producto" method="post" action="{% url 'productos' %}">
-                    {% csrf_token %}
-                    <input type="hidden" id="eliminar-id" name="id">
-                    <input type="hidden" name="accion" value="eliminar">
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="fas fa-times me-2"></i>Cancelar
-                </button>
-                <button type="button" class="btn btn-danger" id="btn-confirmar-eliminacion">
-                    <i class="fas fa-trash me-2"></i>Eliminar
-                </button>
-            </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-save"></i> Guardar Cambios
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
-{% endblock %}
 
-<!-- JavaScript para la funcionalidad de la página -->
+<!-- Scripts -->
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Código para escanear código de barras
-        const codigoBarrasInput = document.getElementById('codigo-barras');
-        const btnEscanear = document.getElementById('btn-escanear');
-        
-        btnEscanear.addEventListener('click', function() {
-            const codigo = codigoBarrasInput.value.trim();
-            if (codigo) {
-                window.location.href = `{% url 'productos' %}?codigo=${codigo}`;
-            }
+document.addEventListener('DOMContentLoaded', function() {
+    // Filtro de búsqueda en tiempo real
+    const searchInput = document.getElementById('searchInput');
+    const tableRows = document.querySelectorAll('#tabla-productos tbody tr');
+    searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        tableRows.forEach(row => {
+            const rowText = row.textContent.toLowerCase();
+            row.style.display = rowText.includes(searchTerm) ? '' : 'none';
         });
-        
-        codigoBarrasInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                btnEscanear.click();
-            }
+    });
+
+    // Modal agregar producto: limpiar campos al abrir
+    const agregarModal = document.getElementById('agregarModal');
+    if (agregarModal) {
+        agregarModal.addEventListener('show.bs.modal', function() {
+            this.querySelector('form').reset();
         });
-        
-        // Código para ver detalles del producto
-        const botonesVer = document.querySelectorAll('.ver-producto');
-        botonesVer.forEach(boton => {
-            boton.addEventListener('click', function() {
-                const id = this.getAttribute('data-id');
-                // Aquí se cargarían los datos del producto desde el servidor
-                // Por ahora, simulamos con datos de ejemplo o de la tabla
-                if (this.closest('tr')) {
-                    const fila = this.closest('tr');
-                    document.getElementById('detalle-codigo').textContent = fila.cells[0].textContent;
-                    document.getElementById('detalle-nombre').textContent = fila.cells[1].textContent;
-                    document.getElementById('detalle-precio').textContent = fila.cells[2].textContent;
-                    document.getElementById('detalle-stock').textContent = fila.cells[3].textContent;
-                    document.getElementById('detalle-fecha').textContent = fila.cells[4].textContent;
+    }
+
+    // Manejo de agregar producto vía AJAX
+    const agregarForm = document.getElementById('agregarForm');
+    if (agregarForm) {
+        agregarForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            fetch('{% url "gestionar_productos" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'No se pudo agregar el producto.'));
                 }
-                
-                // Mostrar el modal
-                const modal = new bootstrap.Modal(document.getElementById('verProductoModal'));
-                modal.show();
+            })
+            .catch(error => {
+                alert('Error al agregar producto: ' + error);
+            });
+        });
+    }
+
+    // Manejo de editar producto vía AJAX
+    document.querySelectorAll('.editar-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.dataset.id;
+            fetch(`{% url 'gestionar_productos' %}?get_producto=${id}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Rellenar el formulario de edición con los datos recibidos
+                        const editModal = new bootstrap.Modal(document.getElementById('editarModal'));
+                        document.getElementById('editar-producto-id').value = data.producto.id;
+                        document.getElementById('editar-nombre').value = data.producto.nombre;
+                        document.getElementById('editar-codigo').value = data.producto.codigo;
+                        document.getElementById('editar-stock').value = data.producto.stock;
+                        document.getElementById('editar-precio').value = data.producto.precio;
+                        document.getElementById('editar-costo').value = data.producto.costo;
+                        document.getElementById('editar-stock-minimo').value = data.producto.stock_minimo;
+                        editModal.show();
+                    } else {
+                        alert('No se pudo cargar el producto.');
+                    }
+                });
+        });
+    });
+    const editarForm = document.getElementById('editarForm');
+    if (editarForm) {
+        editarForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            fetch('{% url "gestionar_productos" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'No se pudo editar el producto.'));
+                }
+            })
+            .catch(error => {
+                alert('Error al editar producto: ' + error);
+            });
+        });
+    }
+
+    // Manejo de eliminar producto vía AJAX
+    document.querySelectorAll('.borrar-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            if (!confirm('¿Está seguro de que desea eliminar este producto?')) return;
+            const id = this.dataset.id;
+            fetch('{% url "gestionar_productos" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: new URLSearchParams({ delete_producto: id })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'No se pudo eliminar el producto.'));
+                }
+            })
+            .catch(error => {
+                alert('Error al eliminar producto: ' + error);
             });
         });
     });
+});
 </script>
-
-{% if es_admin %}
-<!-- JavaScript específico para administradores -->
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Código para guardar nuevo producto
-        document.getElementById('btn-guardar-nuevo').addEventListener('click', function() {
-            document.getElementById('form-nuevo-producto').submit();
-        });
-        
-        // Código para editar producto
-        const botonesEditar = document.querySelectorAll('.editar-producto');
-        botonesEditar.forEach(boton => {
-            boton.addEventListener('click', function() {
-                const id = this.getAttribute('data-id');
-                // Aquí se cargarían los datos del producto desde el servidor
-                // Por ahora, simulamos con datos de la tabla
-                const fila = this.closest('tr');
-                document.getElementById('editar-id').value = id;
-                document.getElementById('editar-codigo').value = fila.cells[0].textContent;
-                document.getElementById('editar-nombre').value = fila.cells[1].textContent;
-                document.getElementById('editar-precio').value = fila.cells[2].textContent.replace('$', '');
-                document.getElementById('editar-stock').value = fila.cells[3].textContent.trim();
-                
-                // Mostrar el modal
-                const modal = new bootstrap.Modal(document.getElementById('editarProductoModal'));
-                modal.show();
-            });
-        });
-        
-        // Código para guardar cambios en la edición
-        document.getElementById('btn-guardar-edicion').addEventListener('click', function() {
-            document.getElementById('form-editar-producto').submit();
-        });
-        
-        // Código para eliminar producto
-        const botonesEliminar = document.querySelectorAll('.eliminar-producto');
-        botonesEliminar.forEach(boton => {
-            boton.addEventListener('click', function() {
-                const id = this.getAttribute('data-id');
-                const fila = this.closest('tr');
-                document.getElementById('eliminar-id').value = id;
-                document.getElementById('eliminar-nombre').textContent = fila.cells[1].textContent;
-                document.getElementById('eliminar-codigo').textContent = fila.cells[0].textContent;
-                
-                // Mostrar el modal
-                const modal = new bootstrap.Modal(document.getElementById('eliminarProductoModal'));
-                modal.show();
-            });
-        });
-        
-        // Confirmar eliminación
-        document.getElementById('btn-confirmar-eliminacion').addEventListener('click', function() {
-            document.getElementById('form-eliminar-producto').submit();
-        });
-    });
-</script>
-{% endif %}
-
-{% block extra_js %}
 {% endblock %}

@@ -8,8 +8,7 @@ urlpatterns = [
     path('nueva-venta/', views.nueva_venta, name='nueva_venta'),
     path('historial/', views.historial, name='historial'),
     path('ofertas/', views.ofertas, name='ofertas'),
-    path('productos/', views.productos, name='productos'),
-    path('api/buscar-producto/', views.buscar_producto_api, name='buscar_producto_api'),
+    path('gestionar_productos/', views.gestionar_productos, name='gestionar_productos'),
     # URLs de Gestión (Admin)
     path('gestionar-inventario/', views.gestionar_inventario, name='gestionar_inventario'),
     path('gestionar-proveedores/', views.gestionar_proveedores, name='gestionar_proveedores'),
