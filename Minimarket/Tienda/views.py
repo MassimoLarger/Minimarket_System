@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.contrib.auth.decorators import user_passes_test # Para restringir vistas a admin
 from django.db import transaction # Para operaciones atómicas
 from .forms import LoginForm
-from .models import Producto, Oferta, Venta, DetalleVenta, Proveedor, Lote, Oferta_vencimiento, Oferta_producto
+from .models import Producto, Oferta, Venta, DetalleVenta, Proveedor, Lote, Oferta_vencimiento, Oferta_producto, LoteProducto
 from django.db.models import Q
 from django.contrib.auth import update_session_auth_hash # Para mantener sesión tras cambio de contraseña
 from django.views.decorators.csrf import csrf_exempt
@@ -47,127 +47,129 @@ def logout_view(request):
     return redirect('login')
 
 @login_required
-@user_passes_test(is_superuser, login_url='home')
+@user_passes_test(is_superuser, login_url='home') # Proteger y redirigir si no es superuser
 def gestionar_productos(request):
     # Obtener todos los productos para mostrar en la tabla
     productos = Producto.objects.all().order_by('nombre')
-    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-
+    
     if request.method == 'POST':
         action = request.POST.get('action')
         producto_id = request.POST.get('producto_id')
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
         if action == 'add_producto':
             try:
-                nombre = request.POST.get('nombre')
-                codigo_barras = request.POST.get('codigo_barras')
-                stock = request.POST.get('stock')
-                precio = request.POST.get('precio')
-                costo = request.POST.get('costo')
-                minimal_stock = request.POST.get('minimal_stock')
-                if not all([nombre, codigo_barras, stock, precio, costo, minimal_stock]):
-                    mensaje = 'Todos los campos son obligatorios.'
-                    if is_ajax:
-                        return JsonResponse({'success': False, 'error': mensaje}, status=400)
-                    else:
-                        messages.error(request, mensaje)
-                        return redirect('gestionar_productos')
                 producto = Producto.objects.create(
-                    nombre=nombre,
-                    codigo_barras=codigo_barras,
-                    stock=int(stock),
-                    precio=float(precio),
-                    costo=float(costo),
-                    minimal_stock=int(minimal_stock)
+                    nombre=request.POST.get('nombre'),
+                    codigo_barras=request.POST.get('codigo_barras'),
+                    stock=int(request.POST.get('stock', 0)),
+                    precio=float(request.POST.get('precio', 0)),
+                    costo=float(request.POST.get('costo', 0)),
+                    minimal_stock=int(request.POST.get('minimal_stock', 0))
                 )
+                messages.success(request, 'Producto añadido correctamente.')
                 if is_ajax:
-                    return JsonResponse({'success': True, 'producto': {'id': producto.id, 'nombre': producto.nombre}})
-                else:
-                    messages.success(request, 'Producto añadido correctamente.')
-                    return redirect('gestionar_productos')
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Producto añadido correctamente.',
+                        'producto': {
+                            'id': producto.id,
+                            'nombre': producto.nombre
+                        }
+                    })
             except Exception as e:
+                messages.error(request, f'Error al añadir producto: {e}')
                 if is_ajax:
-                    return JsonResponse({'success': False, 'error': str(e)}, status=400)
-                else:
-                    messages.error(request, f'Error al añadir producto: {e}')
-                    return redirect('gestionar_productos')
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Error al añadir producto: {e}'
+                    }, status=400)
 
         elif action == 'edit_producto' and producto_id:
             try:
                 producto = get_object_or_404(Producto, id=producto_id)
-                nombre = request.POST.get('nombre')
-                codigo_barras = request.POST.get('codigo_barras')
-                stock = request.POST.get('stock')
-                precio = request.POST.get('precio')
-                costo = request.POST.get('costo')
-                minimal_stock = request.POST.get('minimal_stock')
-                if not all([nombre, codigo_barras, stock, precio, costo, minimal_stock]):
-                    mensaje = 'Todos los campos son obligatorios.'
-                    if is_ajax:
-                        return JsonResponse({'success': False, 'error': mensaje}, status=400)
-                    else:
-                        messages.error(request, mensaje)
-                        return redirect('gestionar_productos')
-                producto.nombre = nombre
-                producto.codigo_barras = codigo_barras
-                producto.stock = int(stock)
-                producto.precio = float(precio)
-                producto.costo = float(costo)
-                producto.minimal_stock = int(minimal_stock)
+                producto.nombre = request.POST.get('nombre')
+                producto.codigo_barras = request.POST.get('codigo_barras')
+                producto.stock = int(request.POST.get('stock', 0))
+                producto.precio = float(request.POST.get('precio', 0))
+                producto.costo = float(request.POST.get('costo', 0))
+                producto.minimal_stock = int(request.POST.get('minimal_stock', 0))
                 producto.save()
+                messages.success(request, f'Producto "{producto.nombre}" actualizado correctamente.')
                 if is_ajax:
-                    return JsonResponse({'success': True})
-                else:
-                    messages.success(request, 'Producto editado correctamente.')
-                    return redirect('gestionar_productos')
+                    return JsonResponse({
+                        'success': True,
+                        'message': f'Producto "{producto.nombre}" actualizado correctamente.'
+                    })
             except Exception as e:
+                messages.error(request, f'Error al actualizar producto: {e}')
                 if is_ajax:
-                    return JsonResponse({'success': False, 'error': str(e)}, status=400)
-                else:
-                    messages.error(request, f'Error al editar producto: {e}')
-                    return redirect('gestionar_productos')
-
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Error al actualizar producto: {e}'
+                    }, status=400)
+        
         elif action == 'delete_producto' and producto_id:
             try:
                 producto = get_object_or_404(Producto, id=producto_id)
+                nombre_producto = producto.nombre
+                
+                # Verificar si el producto está en uso
+                en_ventas = DetalleVenta.objects.filter(producto=producto).exists()
+                en_ofertas = Oferta_producto.objects.filter(producto_id=producto).exists()
+                en_lotes = LoteProducto.objects.filter(producto=producto).exists()
+                
+                if en_ventas or en_ofertas or en_lotes:
+                    mensaje = f'No se puede eliminar "{nombre_producto}" porque tiene registros relacionados.'
+                    messages.error(request, mensaje)
+                    return JsonResponse({
+                        'success': False,
+                        'message': mensaje
+                    }, status=400)
+                
                 producto.delete()
-                if is_ajax:
-                    return JsonResponse({'success': True})
-                else:
-                    messages.success(request, 'Producto eliminado correctamente.')
-                    return redirect('gestionar_productos')
+                mensaje = f'Producto "{nombre_producto}" eliminado correctamente.'
+                messages.success(request, mensaje)
+                return JsonResponse({
+                    'success': True,
+                    'message': mensaje
+                })
+                
             except Exception as e:
-                if is_ajax:
-                    return JsonResponse({'success': False, 'error': str(e)}, status=400)
-                else:
-                    messages.error(request, f'Error al eliminar producto: {e}')
-                    return redirect('gestionar_productos')
-
-        elif action == 'get_producto' and producto_id:
+                mensaje = f'Error al eliminar producto: {str(e)}'
+                messages.error(request, mensaje)
+                return JsonResponse({
+                    'success': False,
+                    'message': mensaje
+                }, status=400)
+        
+        elif action == 'get_producto':
             try:
                 producto = get_object_or_404(Producto, id=producto_id)
                 return JsonResponse({
-                    'success': True,
-                    'producto': {
-                        'id': producto.id,
-                        'nombre': producto.nombre,
-                        'codigo_barras': producto.codigo_barras,
-                        'stock': producto.stock,
-                        'precio': float(producto.precio),
-                        'costo': float(producto.costo),
-                        'minimal_stock': producto.minimal_stock
-                    }
+                    'id': producto.id,
+                    'nombre': producto.nombre,
+                    'codigo_barras': producto.codigo_barras,
+                    'stock': producto.stock,
+                    'precio': float(producto.precio),
+                    'costo': float(producto.costo),
+                    'minimal_stock': producto.minimal_stock
                 })
             except Exception as e:
-                return JsonResponse({'success': False, 'error': str(e)}, status=400)
-
+                return JsonResponse({'error': str(e)}, status=400)
+        
+        # Si llegamos aquí y es una solicitud AJAX, devolver un error
         if is_ajax:
-            return JsonResponse({'success': False, 'error': 'Acción no válida'}, status=400)
-
+            return JsonResponse({
+                'success': False,
+                'message': 'Acción no válida'
+            }, status=400)
+    
     # Recargar la lista actualizada de productos
     productos = Producto.objects.all().order_by('nombre')
     context = {
-        'productos': productos
+        'productos': productos,
+        'es_superadmin': request.user.is_superuser
     }
     return render(request, 'Tienda/productos.html', context)
 
