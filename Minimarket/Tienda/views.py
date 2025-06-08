@@ -415,6 +415,24 @@ def verify_password_providers(request):
 # --- Vistas de Gestión (Admin) ---
 
 @login_required
+@user_passes_test(is_superuser, login_url='home')
+def registro_compra_proveedores(request):
+    from .models import Registro_compra_proveedor
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        registro_id = request.POST.get('registro_id')
+        if action == 'delete_registro' and registro_id:
+            try:
+                registro = Registro_compra_proveedor.objects.get(id=registro_id)
+                registro.delete()
+                messages.success(request, 'Registro eliminado correctamente.')
+            except Registro_compra_proveedor.DoesNotExist:
+                messages.error(request, 'Registro no encontrado.')
+        return redirect('registro_compra_proveedores')
+    registros = Registro_compra_proveedor.objects.all().order_by('-fecha_compra')
+    return render(request, 'Tienda/registro_compra_proveedores.html', {'registros': registros})
+
+@login_required
 def verify_password_inventory(request):
     if not request.user.is_superuser:
         messages.error(request, 'No tienes permiso para acceder a esta sección.')
@@ -439,108 +457,232 @@ def verify_password_inventory(request):
         return redirect('home')
 
 @login_required
-@user_passes_test(is_superuser, login_url='home') # Proteger vista de gestión
+@user_passes_test(lambda u: u.is_superuser, login_url='home')
 def gestionar_inventario(request):
-    # Verificar si el acceso fue concedido a través de la verificación de contraseña
+    # Verificación de acceso adicional
     if not request.session.get('inventory_access_granted', False):
         messages.warning(request, 'Debes verificar tu contraseña para acceder a la gestión de inventario.')
-        request.session['inventory_access_granted'] = False
         return redirect('home')
 
-    request.session['inventory_access_granted'] = False # Limpiar flag
+    # Obtener datos iniciales
+    # Ordenar lotes del más viejo al más nuevo por defecto
+    lotes = Lote.objects.all().order_by('fecha_registro')
+    proveedores = Proveedor.objects.all()
+    productos = Producto.objects.all()
 
     if request.method == 'POST':
         action = request.POST.get('action')
-        if action == 'add_lote':
-            try:
-                proveedor = get_object_or_404(Proveedor, id=request.POST.get('proveedor'))
-                Lote.objects.create(
-                    code_lote=request.POST.get('code_lote'),
-                    proveedor=proveedor,
-                    fecha_vencimiento=request.POST.get('fecha_vencimiento') or None
-                )
-                messages.success(request, 'Lote añadido correctamente.')
-            except Exception as e:
-                messages.error(request, f'Error al añadir lote: {e}')
-            return redirect('gestionar_inventario')
+        lote_id = request.POST.get('lote_id')
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
-        elif action == 'edit_lote':
-            try:
-                lote_id = request.POST.get('lote_id')
-                lote = get_object_or_404(Lote, id=lote_id)
-                lote.code_lote = request.POST.get('code_lote')
-                lote.proveedor = get_object_or_404(Proveedor, id=request.POST.get('proveedor'))
-                lote.fecha_vencimiento = request.POST.get('fecha_vencimiento') or None
-                lote.save()
-                messages.success(request, f'Lote {lote.code_lote} actualizado correctamente.')
-            except Exception as e:
-                messages.error(request, f'Error al actualizar lote: {e}')
-            return redirect('gestionar_inventario')
+        try:
+            if action == 'add_lote':
+                with transaction.atomic():
+                    # Validar código único
+                    code_lote = request.POST.get('code_lote')
+                    if Lote.objects.filter(code_lote=code_lote).exists():
+                        raise ValueError('El código de lote ya existe')
 
-        elif action == 'delete_lote':
-            try:
-                lote_id = request.POST.get('lote_id')
-                lote = get_object_or_404(Lote, id=lote_id)
-                code_lote = lote.code_lote
-                lote.delete()
-                messages.success(request, f'Lote {code_lote} eliminado correctamente.')
-            except Exception as e:
-                messages.error(request, f'Error al eliminar lote: {e}')
-            return redirect('gestionar_inventario')
+                    # Crear el lote
+                    lote = Lote.objects.create(
+                        code_lote=code_lote,
+                        proveedor_id=request.POST.get('proveedor')
+                    )
 
-        elif action == 'assign_productos':
-            try:
-                lote_id = request.POST.get('lote_id')
-                productos_ids = request.POST.getlist('productos_ids')
-                cantidades = request.POST.getlist('cantidades[]', [])
-                
-                lote = get_object_or_404(Lote, id=lote_id)
-                productos_a_asignar = Producto.objects.filter(id__in=productos_ids)
-                
-                with transaction.atomic(): # Asegurar atomicidad
-                    # Si se proporcionaron cantidades individuales para cada producto
-                    if cantidades and len(cantidades) == len(productos_ids):
-                        for i, producto in enumerate(productos_a_asignar):
-                            cantidad = int(cantidades[i])
-                            producto.stock += cantidad
-                            producto.save()
-                            # Guardar la relación con la cantidad específica
-                            # Aquí podríamos usar una tabla intermedia personalizada si existiera
-                            lote.productos.add(producto)
-                    else:
-                        # Usar la cantidad general para todos los productos
-                        cantidad = int(request.POST.get('cantidad', 1))
-                        for producto in productos_a_asignar:
-                            producto.stock += cantidad
-                            producto.save()
-                            lote.productos.add(producto)
-                
-                messages.success(request, f'{len(productos_a_asignar)} producto(s) añadidos al lote {lote.code_lote} y stock actualizado.')
-            except Exception as e:
-                messages.error(request, f'Error al asignar productos al lote: {e}')
-            return redirect('gestionar_inventario')
+                    # Procesar productos
+                    productos_ids = request.POST.getlist('productos[]')
+                    cantidades = request.POST.getlist('cantidades[]')
+                    fechas_vencimiento = request.POST.getlist('fechas_vencimiento[]')
 
-        elif action == 'ver_productos_lote':
-            try:
-                lote_id = request.POST.get('lote_id')
+                    if not productos_ids:
+                        raise ValueError('Debe agregar al menos un producto al lote')
+
+                    for i, producto_id in enumerate(productos_ids):
+                        producto = Producto.objects.get(id=producto_id)
+                        cantidad = int(cantidades[i]) if cantidades[i] else 1
+                        fecha_vencimiento = fechas_vencimiento[i] if i < len(fechas_vencimiento) and fechas_vencimiento[i] else None
+
+                        # Crear relación Lote-Producto
+                        LoteProducto.objects.create(
+                            lote=lote,
+                            producto=producto,
+                            cantidad_inicial=cantidad,
+                            cantidad_disponible=cantidad,
+                            fecha_vencimiento=fecha_vencimiento
+                        )
+
+                        # Actualizar stock del producto
+                        producto.stock += cantidad
+                        producto.save()
+
+                        # Crear respaldo en Registro_compra_proveedor
+                        from .models import Registro_compra_proveedor
+                        Registro_compra_proveedor.objects.create(
+                            proveedor=lote.proveedor,
+                            productos=producto,
+                            cantidad=cantidad,
+                            precio_unitario=producto.costo,
+                            valor_total=producto.costo * cantidad
+                        )
+
+                    msg = f'Lote {lote.code_lote} creado con {len(productos_ids)} producto(s)'
+                    messages.success(request, msg)
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': True,
+                            'message': msg,
+                            'lote': {
+                                'id': lote.id,
+                                'code': lote.code_lote,
+                                'proveedor': lote.proveedor.nombre_proveedor,
+                                'fecha': lote.fecha_registro.strftime('%d/%m/%Y')
+                            }
+                        })
+
+            elif action == 'edit_lote' and lote_id:
+                with transaction.atomic():
+                    lote = get_object_or_404(Lote, id=lote_id)
+                    lote.code_lote = request.POST.get('code_lote')
+                    lote.proveedor_id = request.POST.get('proveedor')
+                    lote.save()
+
+                    msg = f'Lote {lote.code_lote} actualizado correctamente'
+                    messages.success(request, msg)
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': True,
+                            'message': msg
+                        })
+
+            elif action == 'delete_lote' and lote_id:
+                with transaction.atomic():
+                    lote = get_object_or_404(Lote, id=lote_id)
+                    code_lote = lote.code_lote
+
+                    # Actualizar stocks antes de eliminar
+                    for relacion in lote.productos_relacionados.all():
+                        producto = relacion.producto
+                        producto.stock -= relacion.cantidad_disponible
+                        producto.save()
+
+                    lote.delete()
+
+                    msg = f'Lote {code_lote} eliminado correctamente'
+                    messages.success(request, msg)
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': True,
+                            'message': msg
+                        })
+
+            elif action == 'get_lote' and lote_id:
                 lote = get_object_or_404(Lote, id=lote_id)
-                productos = lote.productos.all()
-                return render(request, 'Tienda/productos_lote.html', {
-                    'lote': lote,
-                    'productos': productos
+                productos_lote = [{
+                    'id': lp.producto.id,
+                    'nombre': lp.producto.nombre,
+                    'cantidad': lp.cantidad_inicial,
+                    'fecha_vencimiento': lp.fecha_vencimiento.strftime('%Y-%m-%d') if lp.fecha_vencimiento else None
+                } for lp in lote.productos_relacionados.all()]
+
+                return JsonResponse({
+                    'id': lote.id,
+                    'code_lote': lote.code_lote,
+                    'proveedor_id': lote.proveedor.id,
+                    'productos': productos_lote
                 })
-            except Exception as e:
-                messages.error(request, f'Error al ver productos del lote: {e}')
-                return redirect('gestionar_inventario')
 
-    lotes = Lote.objects.all().order_by('-fecha_registro')
-    proveedores = Proveedor.objects.all()
-    productos_disponibles = Producto.objects.all()
-    return render(request, 'Tienda/gestionar_inventario.html', {
+            elif action == 'assign_productos' and lote_id:
+                with transaction.atomic():
+                    lote = get_object_or_404(Lote, id=lote_id)
+                    productos_ids = request.POST.getlist('productos_ids[]')
+                    cantidades = request.POST.getlist('cantidades[]')
+                    fechas_vencimiento = request.POST.getlist('fechas_vencimiento[]')
+                    productos_a_eliminar = request.POST.getlist('productos_eliminar[]')
+
+                    # Eliminar productos del lote si corresponde
+                    if productos_a_eliminar:
+                        for prod_id in productos_a_eliminar:
+                            try:
+                                relacion = LoteProducto.objects.get(lote=lote, producto_id=prod_id)
+                                producto = relacion.producto
+                                producto.stock -= relacion.cantidad_disponible
+                                producto.save()
+                                relacion.delete()
+                            except LoteProducto.DoesNotExist:
+                                pass
+
+                    if not productos_ids and not productos_a_eliminar:
+                        raise ValueError('Debe seleccionar al menos un producto')
+
+                    for i, producto_id in enumerate(productos_ids):
+                        producto = Producto.objects.get(id=producto_id)
+                        cantidad = int(cantidades[i]) if cantidades[i] else 1
+                        fecha_vencimiento = fechas_vencimiento[i] if i < len(fechas_vencimiento) and fechas_vencimiento[i] else None
+
+                        # Crear o actualizar relación
+                        relacion, created = LoteProducto.objects.get_or_create(
+                            lote=lote,
+                            producto=producto,
+                            defaults={
+                                'cantidad_inicial': cantidad,
+                                'cantidad_disponible': cantidad,
+                                'fecha_vencimiento': fecha_vencimiento
+                            }
+                        )
+
+                        if not created:
+                            relacion.cantidad_inicial += cantidad
+                            relacion.cantidad_disponible += cantidad
+                            relacion.save()
+
+                        # Actualizar stock
+                        producto.stock += cantidad
+                        producto.save()
+
+                        # Crear respaldo en Registro_compra_proveedor
+                        from .models import Registro_compra_proveedor
+                        Registro_compra_proveedor.objects.create(
+                            proveedor=lote.proveedor,
+                            productos=producto,
+                            cantidad=cantidad,
+                            precio_unitario=producto.costo,
+                            valor_total=producto.costo * cantidad
+                        )
+
+                    msg = f'{len(productos_ids)} producto(s) agregados/eliminados del lote {lote.code_lote}'
+                    messages.success(request, msg)
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': True,
+                            'message': msg
+                        })
+
+        except Exception as e:
+            messages.error(request, f'Error: {str(e)}')
+            if is_ajax:
+                return JsonResponse({
+                    'success': False,
+                    'message': str(e)
+                }, status=400)
+
+        # Si es AJAX y no se manejó antes
+        if is_ajax:
+            return JsonResponse({
+                'success': False,
+                'message': 'Acción no válida'
+            }, status=400)
+
+    # Recargar datos actualizados para el template
+    # Ordenar lotes del más viejo al más nuevo por defecto
+    lotes = Lote.objects.all().order_by('fecha_registro')
+
+    context = {
         'lotes': lotes,
         'proveedores': proveedores,
-        'productos_disponibles': productos_disponibles
-    })
+        'productos_disponibles': productos,
+        'now': timezone.now().date()  # Para comparar con fechas de vencimiento
+    }
+    return render(request, 'Tienda/gestionar_inventario.html', context)
 
 @login_required
 @user_passes_test(is_superuser, login_url='home') # Proteger y redirigir si no es superuser

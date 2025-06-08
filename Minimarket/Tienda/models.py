@@ -29,23 +29,33 @@ class Producto(models.Model):
         return f"{self.nombre} - {self.codigo_barras}"
 
 class Lote(models.Model):
-    code_lote = models.CharField(max_length=50)
-    proveedor = models.ForeignKey(Proveedor, on_delete=models.CASCADE)
+    code_lote = models.CharField(max_length=50, unique=True)  # Asegurar códigos únicos
+    proveedor = models.ForeignKey(Proveedor, on_delete=models.CASCADE, related_name='lotes')
     productos = models.ManyToManyField('Producto', through='LoteProducto')
-    fecha_registro = models.DateField(auto_now_add=True)
+    fecha_registro = models.DateTimeField(auto_now_add=True)  # Mejor usar DateTimeField
+    
+    class Meta:
+        ordering = ['-fecha_registro']
+        verbose_name = 'Lote'
+        verbose_name_plural = 'Lotes'
     
     def __str__(self):
-        return f"{self.code_lote} - {self.proveedor} - {self.fecha_registro}"
+        return f"{self.code_lote} - {self.proveedor.nombre_proveedor} - {self.fecha_registro.strftime('%d/%m/%Y')}"
 
 class LoteProducto(models.Model):
-    lote = models.ForeignKey(Lote, on_delete=models.CASCADE)
-    producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
+    lote = models.ForeignKey(Lote, on_delete=models.CASCADE, related_name='productos_relacionados')
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='lotes_asociados')
     fecha_vencimiento = models.DateField(null=True, blank=True)
     cantidad_inicial = models.PositiveIntegerField(default=1)
     cantidad_disponible = models.PositiveIntegerField(default=1)
     
+    class Meta:
+        unique_together = ('lote', 'producto')  # Evitar duplicados
+        verbose_name = 'Relación Lote-Producto'
+        verbose_name_plural = 'Relaciones Lote-Producto'
+    
     def __str__(self):
-        return f"{self.lote.code_lote} - {self.producto.nombre} x {self.cantidad_inicial} - {self.cantidad_disponible}"
+        return f"{self.lote.code_lote} - {self.producto.nombre} x{self.cantidad_inicial} (disp: {self.cantidad_disponible})"
 
 class Registro_compra_proveedor(models.Model):
     proveedor = models.ForeignKey(Proveedor, on_delete=models.CASCADE)

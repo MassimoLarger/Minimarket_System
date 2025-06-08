@@ -4,7 +4,6 @@
 <div class="container mt-4">
     <h2 class="mb-4"><i class="fas fa-boxes me-2"></i>Gestionar Productos</h2>
 
-    <!-- Card de Búsqueda -->
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-header bg-secondary text-white">
             <h5 class="mb-0"><i class="fas fa-search me-2"></i>Buscar Productos</h5>
@@ -32,14 +31,12 @@
         </div>
     </div>
 
-    <!-- Botón Añadir Producto -->
     <div class="mb-3">
         <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#nuevoProductoModal">
             <i class="fas fa-plus-circle me-2"></i>Añadir Producto
         </button>
     </div>
 
-    <!-- Card de Listado -->
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-secondary text-white">
             <h5 class="mb-0"><i class="fas fa-list me-2"></i>Listado de Productos</h5>
@@ -83,7 +80,6 @@
         </div>
     </div>
 
-    <!-- Botón Volver -->
     <div class="d-flex justify-content-end mt-3">
         <a href="{% url 'home' %}" class="btn btn-secondary">
             <i class="fas fa-arrow-left me-2"></i>Volver al Inicio
@@ -91,7 +87,6 @@
     </div>
 </div>
 
-<!-- Modal para Nuevo/Editar Producto -->
 <div class="modal fade" id="nuevoProductoModal" tabindex="-1" aria-labelledby="nuevoProductoModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -155,7 +150,6 @@
         const tablaProductos = document.getElementById('tabla-productos');
         const noResultados = document.getElementById('no-resultados');
 
-        // Función de filtrado
         function filtrarProductos() {
             const textoBusqueda = buscarInput.value.toLowerCase().trim();
             const filtro = filtroSelect.value;
@@ -163,7 +157,6 @@
             const filas = document.querySelectorAll('.fila-producto');
             let filasArray = Array.from(filas);
 
-            // Ordenar
             if (filtro === 'nombre') {
                 filasArray.sort((a, b) => a.dataset.nombre.localeCompare(b.dataset.nombre));
             } else if (filtro === 'codigo') {
@@ -176,7 +169,6 @@
                 filasArray.sort((a, b) => parseFloat(a.dataset.costo) - parseFloat(b.dataset.costo));
             }
 
-            // Aplicar filtro
             const tbody = tablaProductos.querySelector('tbody');
             tbody.innerHTML = '';
             
@@ -191,13 +183,11 @@
                 }
             });
 
-            // Mostrar mensaje si no hay resultados
             if (noResultados) {
                 noResultados.style.display = hayResultados ? 'none' : '';
             }
         }
 
-        // Eventos de búsqueda/filtrado
         if (btnBuscar) btnBuscar.addEventListener('click', filtrarProductos);
         if (buscarInput) {
             buscarInput.addEventListener('input', filtrarProductos);
@@ -205,14 +195,12 @@
         }
         if (filtroSelect) filtroSelect.addEventListener('change', filtrarProductos);
 
-        // Configurar botones de editar
         function configurarBotonesEditar() {
             document.querySelectorAll('.editar-producto').forEach(btn => {
                 btn.addEventListener('click', function() {
                     productoActionInput.value = 'edit_producto';
                     productoIdInput.value = this.dataset.id;
                     
-                    // Llenar formulario con los datos del producto
                     document.getElementById('nombre').value = this.dataset.nombre;
                     document.getElementById('codigo_barras').value = this.dataset.codigo;
                     document.getElementById('stock').value = this.dataset.stock;
@@ -220,7 +208,6 @@
                     document.getElementById('costo').value = this.dataset.costo;
                     document.getElementById('minimal_stock').value = this.dataset.minimal_stock;
                     
-                    // Configurar modal para edición
                     modalTitle.innerHTML = '<i class="fas fa-edit me-2"></i>Editar Producto';
                     btnGuardar.textContent = 'Actualizar Producto';
                     btnGuardar.classList.replace('btn-success', 'btn-warning');
@@ -259,11 +246,8 @@
                     })
                     .then(data => {
                         if (data.success) {
-                            // Mostrar mensaje de éxito
                             alert(data.message);
-                            // Eliminar la fila de la tabla
                             this.closest('tr').remove();
-                            // Si no quedan productos, mostrar mensaje
                             if (document.querySelectorAll('.fila-producto').length === 0) {
                                 noResultados.style.display = '';
                             }
@@ -308,7 +292,6 @@
             .then(data => {
                 if (data.success) {
                     nuevoProductoModal.hide();
-                    // Recargar la página para mostrar los cambios
                     location.reload();
                 } else {
                     alert(data.error || 'Error al guardar el producto');

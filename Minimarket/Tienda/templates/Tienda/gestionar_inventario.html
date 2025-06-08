@@ -1,52 +1,114 @@
 {% extends 'Tienda/base_layout.html' %}
+{% load static %}
 
 {% block content %}
 <div class="container mt-4">
-    <h2 class="mb-4"><i class="fas fa-boxes me-2"></i>Gestionar Inventario</h2>
+    <h2 class="mb-4"><i class="fas fa-boxes me-2"></i>Gestión de Inventario</h2>
 
-    <!-- Sección para gestionar Lotes -->
-    <div class="card mb-4 border-0 shadow-sm">
+    <!-- Tarjeta de Búsqueda -->
+    <div class="card border-0 shadow-sm mb-4">
         <div class="card-header bg-primary text-white">
-            <h5 class="mb-0"><i class="fas fa-layer-group me-2"></i>Lotes</h5>
+            <h5 class="mb-0"><i class="fas fa-search me-2"></i>Buscar Lotes</h5>
         </div>
         <div class="card-body">
-            <!-- Botón para añadir nuevo lote (Modal) -->
-            <button class="btn btn-success mb-3" data-bs-toggle="modal" data-bs-target="#nuevoLoteModal">
-                <i class="fas fa-plus-circle me-2"></i>Añadir Lote
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="input-group mb-3">
+                        <input type="text" id="buscar-lote" class="form-control" placeholder="Buscar por código, proveedor o producto...">
+                        <button class="btn btn-outline-secondary" type="button" id="btn-buscar-lote">
+                            <i class="fas fa-search"></i> Buscar
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <select id="filtro-lote" class="form-select">
+                        <option value="">Todos los lotes</option>
+                        <option value="recientes">Más recientes</option>
+                        <option value="antiguos">Más antiguos</option>
+                        <option value="proveedor">Por proveedor</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tarjeta de Listado -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i>Listado de Lotes</h5>
+            <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#nuevoLoteModal">
+                <i class="fas fa-plus me-1"></i> Nuevo Lote
             </button>
-            
-            <!-- Tabla de Lotes -->
+        </div>
+        <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
+                <table class="table table-hover" id="tabla-lotes">
+                    <thead class="table-light">
                         <tr>
-                            <th>Código Lote</th>
+                            <th>Código</th>
                             <th>Proveedor</th>
                             <th>Fecha Registro</th>
-                            <th>Fecha Vencimiento</th>
+                            <th>Productos</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for lote in lotes %}
-                        <tr>
+                        <tr data-id="{{ lote.id }}" data-codigo="{{ lote.code_lote|lower }}" 
+                            data-proveedor="{{ lote.proveedor.nombre_proveedor|lower }}"
+                            data-proveedor-id="{{ lote.proveedor.id }}"
+                            data-fecha="{{ lote.fecha_registro|date:'Y-m-d' }}">
                             <td>{{ lote.code_lote }}</td>
                             <td>{{ lote.proveedor.nombre_proveedor }}</td>
-                            <td>{{ lote.fecha_registro|date:"d/m/Y" }}</td>
-                            <td>{{ lote.fecha_vencimiento|date:"d/m/Y" }}</td>
+                            <td>{{ lote.fecha_registro|date:"d/m/Y H:i" }}</td>
                             <td>
-                                <!-- Acciones para lotes -->
-                                <button class="btn btn-sm btn-success btn-asignar-productos" data-bs-toggle="modal" data-bs-target="#asignarProductosModal" data-lote-id="{{ lote.id }}" data-lote-code="{{ lote.code_lote }}">
-                                    <i class="fas fa-plus"></i> Añadir Productos
-                                </button>
-                                <button class="btn btn-sm btn-info"><i class="fas fa-eye"></i> Ver</button> <!-- Placeholder -->
-                                <button class="btn btn-sm btn-warning"><i class="fas fa-edit"></i> Editar</button> <!-- Placeholder -->
-                                <button class="btn btn-sm btn-danger"><i class="fas fa-trash"></i> Eliminar</button> <!-- Placeholder -->
+                                {% if lote.productos_relacionados.exists %}
+                                <div style="max-height: 120px; overflow-y: auto;">
+                                    {% for lp in lote.productos_relacionados.all %}
+                                    <div class="mb-1">
+                                        {{ lp.producto.nombre }} 
+                                        <span class="badge bg-info text-dark">{{ lp.cantidad_disponible }}/{{ lp.cantidad_inicial }}</span>
+                                        {% if lp.fecha_vencimiento %}
+                                        <br>
+                                        <small class="text-muted {% if lp.fecha_vencimiento < now %}text-danger{% endif %}">
+                                            Vence: {{ lp.fecha_vencimiento|date:"d/m/Y" }}
+                                        </small>
+                                        {% endif %}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <span class="text-muted">Sin productos</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button class="btn btn-outline-primary btn-asignar" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#asignarProductosModal"
+                                            data-lote-id="{{ lote.id }}"
+                                            data-lote-code="{{ lote.code_lote }}">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                    <button class="btn btn-outline-warning btn-editar" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#editarLoteModal"
+                                            data-lote-id="{{ lote.id }}">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-eliminar" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#confirmarEliminarModal"
+                                            data-lote-id="{{ lote.id }}"
+                                            data-lote-code="{{ lote.code_lote }}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                         {% empty %}
-                        <tr>
-                            <td colspan="5" class="text-center">No hay lotes registrados.</td>
+                        <tr id="no-resultados">
+                            <td colspan="5" class="text-center py-4">No hay lotes registrados</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -55,93 +117,231 @@
         </div>
     </div>
 
-    <!-- Sección para gestionar Productos (si es necesario gestionarlos aquí también) -->
-    <!-- Se podría reutilizar parte de la lógica de productos.html o tener una gestión más específica relacionada al inventario -->
-
-    <div class="d-flex justify-content-end mt-3">
-        <a href="{% url 'home' %}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-2"></i>Volver al Inicio
-        </a>
-    </div>
-</div>
-
-<!-- Modal para Nuevo Lote -->
-<div class="modal fade" id="nuevoLoteModal" tabindex="-1" aria-labelledby="nuevoLoteModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title" id="nuevoLoteModalLabel"><i class="fas fa-plus-circle me-2"></i>Añadir Nuevo Lote</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="form-nuevo-lote" method="post" action="{% url 'gestionar_inventario' %}"> <!-- Ajustar la URL de acción -->
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="add_lote">
-                    <div class="mb-3">
-                        <label for="code_lote" class="form-label">Código del Lote</label>
-                        <input type="text" class="form-control" id="code_lote" name="code_lote" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="proveedor" class="form-label">Proveedor</label>
-                        <select class="form-select" id="proveedor" name="proveedor" required>
-                            <option value="" selected disabled>Seleccione un proveedor</option>
-                            {% for proveedor in proveedores %}
-                            <option value="{{ proveedor.id }}">{{ proveedor.nombre_proveedor }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="fecha_vencimiento" class="form-label">Fecha de Vencimiento</label>
-                        <input type="date" class="form-control" id="fecha_vencimiento" name="fecha_vencimiento">
-                    </div>
-                    <!-- Añadir aquí campos para agregar productos al lote si es necesario -->
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" form="form-nuevo-lote" class="btn btn-success">Guardar Lote</button>
-            </div>
+    <div class="d-flex justify-content-between mt-3">
+        <div>
+            <span class="badge bg-light text-dark">Total: {{ lotes.count }} lote(s)</span>
+        </div>
+        <div>
+            <a href="{% url 'registro_compra_proveedores' %}" class="btn btn-info me-2">
+                <i class="fas fa-clipboard-list me-2"></i>Ver Registro de Compras
+            </a>
+            <a href="{% url 'home' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Volver
+            </a>
         </div>
     </div>
 </div>
 
-<!-- Modal para Asignar Productos a Lote -->
-<div class="modal fade" id="asignarProductosModal" tabindex="-1" aria-labelledby="asignarProductosModalLabel" aria-hidden="true">
+<!-- Modal Nuevo Lote -->
+<div class="modal fade" id="nuevoLoteModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
-                <h5 class="modal-title" id="asignarProductosModalLabel"><i class="fas fa-plus me-2"></i>Asignar Productos al Lote <span id="lote-code-modal"></span></h5>
+                <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i>Nuevo Lote</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="form-nuevo-lote" method="post" action="{% url 'gestionar_inventario' %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_lote">
+                <div class="modal-body">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label for="code_lote" class="form-label">Código del Lote*</label>
+                            <input type="text" class="form-control" id="code_lote" name="code_lote" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="proveedor" class="form-label">Proveedor*</label>
+                            <select class="form-select" id="proveedor" name="proveedor" required>
+                                <option value="" selected disabled>Seleccione proveedor</option>
+                                {% for proveedor in proveedores %}
+                                <option value="{{ proveedor.id }}">{{ proveedor.nombre_proveedor }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <h5 class="border-bottom pb-2 mb-3">Productos del Lote</h5>
+                    
+                    <div id="productos-container">
+                        <div class="producto-item card mb-3">
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Producto*</label>
+                                        <select class="form-select" name="productos[]" required>
+                                            <option value="" selected disabled>Seleccione producto</option>
+                                            {% for producto in productos_disponibles %}
+                                            <option value="{{ producto.id }}">{{ producto.nombre }} (Stock: {{ producto.stock }})</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Fecha Vencimiento</label>
+                                        <input type="date" class="form-control" name="fechas_vencimiento[]">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Cantidad*</label>
+                                        <input type="number" class="form-control" name="cantidades[]" min="1" value="1" required>
+                                    </div>
+                                    <div class="col-md-1 d-flex align-items-end">
+                                        <button type="button" class="btn btn-danger btn-remove-producto" disabled>
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="button" id="btn-add-producto" class="btn btn-outline-primary mt-2">
+                        <i class="fas fa-plus me-2"></i>Añadir Producto
+                    </button>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save me-2"></i>Guardar Lote
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Asignar Productos -->
+<div class="modal fade" id="asignarProductosModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-plus me-2"></i>Asignar Productos</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="form-asignar-productos" method="post" action="{% url 'gestionar_inventario' %}">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="assign_productos">
-                <input type="hidden" name="lote_id" id="lote_id_modal">
+                <input type="hidden" name="lote_id" id="input-lote-id">
                 <div class="modal-body">
-                    <p>Seleccione los productos y la cantidad a añadir al lote:</p>
-                    <!-- Aquí iría una tabla o lista de productos disponibles -->
-                    <!-- Ejemplo simple: un select múltiple -->
-                    <div class="mb-3">
-                        <label for="productos_a_asignar" class="form-label">Productos Disponibles</label>
-                        <select multiple class="form-select" id="productos_a_asignar" name="productos_ids" size="10" required>
-                            {% for producto in productos_disponibles %} {# Necesitarás pasar 'productos_disponibles' desde la vista #}
-                                <option value="{{ producto.id }}">{{ producto.nombre }} ({{ producto.codigo_barras }}) - Stock: {{ producto.stock }}</option>
-                            {% endfor %}
-                        </select>
-                        <small class="form-text text-muted">Mantén presionada la tecla Ctrl (o Cmd en Mac) para seleccionar múltiples productos.</small>
+                    <h6>Lote: <strong id="lote-code-title"></strong></h6>
+                    
+                    <div class="table-responsive mt-3">
+                        <table class="table table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Producto*</th>
+                                    <th>Fecha Vencimiento</th>
+                                    <th>Cantidad*</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productos-asignar-container">
+                                <tr class="producto-asignar-item">
+                                    <td>
+                                        <select class="form-select form-select-sm" name="productos_ids[]" required>
+                                            <option value="" selected disabled>Seleccione producto</option>
+                                            {% for producto in productos_disponibles %}
+                                            <option value="{{ producto.id }}">{{ producto.nombre }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="date" class="form-control form-control-sm" name="fechas_vencimiento[]">
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm" name="cantidades[]" min="1" value="1" required>
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-outline-danger btn-remove-fila">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
-                    <div class="mb-3">
-                        <label for="cantidad_a_asignar" class="form-label">Cantidad a añadir (por producto seleccionado)</label>
-                        <input type="number" class="form-control" id="cantidad_a_asignar" name="cantidad" value="1" min="1" required>
-                        <small class="form-text text-muted">Esta cantidad se añadirá al stock de cada producto seleccionado.</small>
-                    </div>
-                    <!-- Se podría añadir una tabla más compleja con inputs de cantidad por producto -->
+                    
+                    <button type="button" id="btn-add-fila" class="btn btn-outline-primary btn-sm mt-2">
+                        <i class="fas fa-plus me-2"></i>Añadir Producto
+                    </button>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success">Asignar Productos</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Guardar
+                    </button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Editar Lote -->
+<div class="modal fade" id="editarLoteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-white">
+                <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Editar Lote</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="form-editar-lote" method="post" action="{% url 'gestionar_inventario' %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="edit_lote">
+                <input type="hidden" name="lote_id" id="editar-lote-id">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editar-code-lote" class="form-label">Código del Lote*</label>
+                        <input type="text" class="form-control" id="editar-code-lote" name="code_lote" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editar-proveedor" class="form-label">Proveedor*</label>
+                        <select class="form-select" id="editar-proveedor" name="proveedor" required>
+                            {% for proveedor in proveedores %}
+                            <option value="{{ proveedor.id }}">{{ proveedor.nombre_proveedor }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-warning text-white">
+                        <i class="fas fa-save me-2"></i>Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Confirmar Eliminación -->
+<div class="modal fade" id="confirmarEliminarModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i>Confirmar Eliminación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Está seguro de eliminar el lote <strong id="lote-eliminar-nombre"></strong>?</p>
+                <p class="text-danger"><small>Esta acción afectará los stocks de productos y no se puede deshacer.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cancelar
+                </button>
+                <form id="form-eliminar-lote" method="post" action="{% url 'gestionar_inventario' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete_lote">
+                    <input type="hidden" name="lote_id" id="eliminar-lote-id">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash me-2"></i>Eliminar
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 </div>
@@ -151,65 +351,193 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const asignarProductoButtons = document.querySelectorAll('.btn-asignar-productos');
-    const asignarModal = new bootstrap.Modal(document.getElementById('asignarProductosModal'));
-    const loteIdInput = document.getElementById('lote_id_modal');
-    const loteCodeSpan = document.getElementById('lote-code-modal');
+    // 1. Búsqueda y Filtrado
+    const buscarInput = document.getElementById('buscar-lote');
+    const btnBuscar = document.getElementById('btn-buscar-lote');
+    const filtroSelect = document.getElementById('filtro-lote');
+    
+    function filtrarLotes() {
+        const texto = buscarInput.value.toLowerCase();
+        const filtro = filtroSelect.value;
+        const filas = document.querySelectorAll('tbody tr[data-id]');
+        let hayResultados = false;
+        
+        filas.forEach(fila => {
+            const cumpleBusqueda = texto === '' || 
+                fila.dataset.codigo.includes(texto) || 
+                fila.dataset.proveedor.includes(texto);
+            
+            fila.style.display = cumpleBusqueda ? '' : 'none';
+            if (cumpleBusqueda) hayResultados = true;
+        });
+        
+        const noResultados = document.getElementById('no-resultados');
+        if (noResultados) {
+            noResultados.style.display = hayResultados ? 'none' : '';
+        }
+    }
+    
+    if (buscarInput && btnBuscar && filtroSelect) {
+        buscarInput.addEventListener('input', filtrarLotes);
+        btnBuscar.addEventListener('click', filtrarLotes);
+        filtroSelect.addEventListener('change', filtrarLotes);
+    }
 
-    asignarProductoButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const loteId = this.getAttribute('data-lote-id');
-            const loteCode = this.getAttribute('data-lote-code');
-            loteIdInput.value = loteId;
-            loteCodeSpan.textContent = loteCode;
-            // Aquí podrías hacer una llamada AJAX para cargar los productos disponibles
-            // o asegurarte de que 'productos_disponibles' se cargue correctamente en el template.
+    // 2. Gestión de Productos en Nuevo Lote
+    const btnAddProducto = document.getElementById('btn-add-producto');
+    if (btnAddProducto) {
+        btnAddProducto.addEventListener('click', function() {
+            const container = document.getElementById('productos-container');
+            const template = container.querySelector('.producto-item');
+            const clone = template.cloneNode(true);
+            
+            // Limpiar valores
+            const select = clone.querySelector('select');
+            const inputs = clone.querySelectorAll('input');
+            select.value = '';
+            inputs.forEach(input => input.value = input.type === 'number' ? '1' : '');
+            
+            // Habilitar botón eliminar
+            const btnRemove = clone.querySelector('.btn-remove-producto');
+            btnRemove.disabled = false;
+            btnRemove.addEventListener('click', function() {
+                if (container.querySelectorAll('.producto-item').length > 1) {
+                    this.closest('.producto-item').remove();
+                }
+            });
+            
+            container.appendChild(clone);
+        });
+    }
+
+    // 3. Configurar modales
+    // Asignar productos
+    document.querySelectorAll('.btn-asignar').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.getElementById('input-lote-id').value = this.dataset.loteId;
+            document.getElementById('lote-code-title').textContent = this.dataset.loteCode;
         });
     });
+    
+    // Editar lote
+    document.querySelectorAll('.btn-editar').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const loteId = this.dataset.loteId;
+            const fila = document.querySelector(`tr[data-id="${loteId}"]`);
+            
+            document.getElementById('editar-lote-id').value = loteId;
+            document.getElementById('editar-code-lote').value = fila.querySelector('td:first-child').textContent;
+            document.getElementById('editar-proveedor').value = fila.dataset.proveedorId;
+        });
+    });
+    
+    // Eliminar lote
+    document.querySelectorAll('.btn-eliminar').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.getElementById('eliminar-lote-id').value = this.dataset.loteId;
+            document.getElementById('lote-eliminar-nombre').textContent = this.dataset.loteCode;
+        });
+    });
+
+    // 4. Configurar formularios AJAX - VERSIÓN CORREGIDA
+    function handleFormSubmit(formId) {
+        const form = document.getElementById(formId);
+        if (!form) return;
+        
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Procesando...';
+            
+            // Obtener la URL correcta del formulario
+            const actionUrl = form.getAttribute('action');
+            
+            fetch(actionUrl, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error en la respuesta del servidor');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // Cerrar el modal correspondiente
+                    const modalId = form.closest('.modal').id;
+                    const modal = bootstrap.Modal.getInstance(document.getElementById(modalId));
+                    if (modal) modal.hide();
+                    
+                    // Mostrar mensaje y recargar
+                    if (data.message) {
+                        alert(data.message);
+                    }
+                    window.location.reload();
+                } else {
+                    throw new Error(data.message || 'Error desconocido');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert(error.message || 'Error al procesar la solicitud');
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            });
+        });
+    }
+
+    // Configurar todos los formularios
+    handleFormSubmit('form-nuevo-lote');
+    handleFormSubmit('form-asignar-productos');
+    handleFormSubmit('form-editar-lote');
+    handleFormSubmit('form-eliminar-lote');
+
+    // 5. Añadir filas dinámicas para asignar productos
+    const btnAddFila = document.getElementById('btn-add-fila');
+    if (btnAddFila) {
+        btnAddFila.addEventListener('click', function() {
+            const container = document.getElementById('productos-asignar-container');
+            const template = container.querySelector('.producto-asignar-item');
+            const clone = template.cloneNode(true);
+            
+            // Limpiar valores
+            const select = clone.querySelector('select');
+            const inputs = clone.querySelectorAll('input');
+            select.value = '';
+            inputs.forEach(input => input.value = input.type === 'number' ? '1' : '');
+            
+            // Habilitar botón eliminar
+            const btnRemove = clone.querySelector('.btn-remove-fila');
+            btnRemove.disabled = false;
+            btnRemove.addEventListener('click', function() {
+                if (container.querySelectorAll('.producto-asignar-item').length > 1) {
+                    this.closest('tr').remove();
+                }
+            });
+            
+            container.appendChild(clone);
+        });
+    }
 });
 </script>
-<script>
-    // Posible Javascript para manejar interacciones, validaciones o llamadas AJAX
-</script>
-<!-- Modal para Asignar Productos a Lote -->
-<div class="modal fade" id="asignarProductosModal" tabindex="-1" aria-labelledby="asignarProductosModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title" id="asignarProductosModalLabel"><i class="fas fa-plus me-2"></i>Asignar Productos al Lote <span id="lote-code-modal"></span></h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form id="form-asignar-productos" method="post" action="{% url 'gestionar_inventario' %}">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="assign_productos">
-                <input type="hidden" name="lote_id" id="lote_id_modal">
-                <div class="modal-body">
-                    <p>Seleccione los productos y la cantidad a añadir al lote:</p>
-                    <!-- Aquí iría una tabla o lista de productos disponibles -->
-                    <!-- Ejemplo simple: un select múltiple -->
-                    <div class="mb-3">
-                        <label for="productos_a_asignar" class="form-label">Productos Disponibles</label>
-                        <select multiple class="form-select" id="productos_a_asignar" name="productos_ids" size="10" required>
-                            {% for producto in productos_disponibles %} {# Necesitarás pasar 'productos_disponibles' desde la vista #}
-                                <option value="{{ producto.id }}">{{ producto.nombre }} ({{ producto.codigo_barras }}) - Stock: {{ producto.stock }}</option>
-                            {% endfor %}
-                        </select>
-                        <small class="form-text text-muted">Mantén presionada la tecla Ctrl (o Cmd en Mac) para seleccionar múltiples productos.</small>
-                    </div>
-                    <div class="mb-3">
-                        <label for="cantidad_a_asignar" class="form-label">Cantidad a añadir (por producto seleccionado)</label>
-                        <input type="number" class="form-control" id="cantidad_a_asignar" name="cantidad" value="1" min="1" required>
-                        <small class="form-text text-muted">Esta cantidad se añadirá al stock de cada producto seleccionado.</small>
-                    </div>
-                    <!-- Se podría añadir una tabla más compleja con inputs de cantidad por producto -->
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success">Asignar Productos</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
 {% endblock %}
+
+// Ordenar lotes del más viejo al más nuevo por defecto
+window.addEventListener('DOMContentLoaded', function() {
+    const filtroSelect = document.getElementById('filtro-lote');
+    if (filtroSelect) {
+        filtroSelect.value = 'antiguos';
+        const event = new Event('change');
+        filtroSelect.dispatchEvent(event);
+    }
+});

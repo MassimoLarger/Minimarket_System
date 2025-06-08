@@ -140,20 +140,18 @@
     const filasProveedores = document.querySelectorAll('.fila-proveedor');
     const noResultados = document.getElementById('no-resultados');
 
-    // Función para mostrar/ocultar filas según búsqueda y filtro
+    // Función para filtrar proveedores en la tabla
     function filtrarProveedores() {
         const textoBusqueda = buscarInput.value.toLowerCase().trim();
         const filtro = filtroSelect.value;
         let hayResultados = false;
         const filasActuales = document.querySelectorAll('.fila-proveedor');
         let filasArray = Array.from(filasActuales);
-        // Ordenar según filtro
         if (filtro === 'nombre') {
             filasArray.sort((a, b) => a.dataset.nombre.localeCompare(b.dataset.nombre));
         } else if (filtro === 'direccion') {
             filasArray.sort((a, b) => a.dataset.direccion.localeCompare(b.dataset.direccion));
         }
-        // Limpiar y volver a agregar filas ordenadas
         const tbody = document.querySelector('#tabla-proveedores tbody');
         tbody.innerHTML = '';
         filasArray.forEach(fila => {
@@ -184,16 +182,12 @@
         }
     }
 
-    // Eventos para filtrado y búsqueda
     if (btnBuscar) {
         btnBuscar.addEventListener('click', filtrarProveedores);
     }
     
     if (buscarInput) {
-        // Filtrar en tiempo real mientras se escribe
         buscarInput.addEventListener('input', filtrarProveedores);
-        
-        // También mantener el evento de Enter por compatibilidad
         buscarInput.addEventListener('keyup', function(e) {
             if (e.key === 'Enter') {
                 filtrarProveedores();

@@ -84,7 +84,6 @@
                                         </tr>
                                     </thead>
                                     <tbody id="detalle-venta">
-                                        <!-- Los productos se agregarán dinámicamente aquí -->
                                     </tbody>
                                     <tfoot>
                                         <tr>
@@ -111,7 +110,6 @@
     </div>
 </div>
 
-<!-- Modal de Confirmación -->
 <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -138,7 +136,6 @@
     </div>
 </div>
 
-<!-- JavaScript para la funcionalidad de la página -->
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const codigoBarrasInput = document.getElementById('codigo-barras');
@@ -163,16 +160,13 @@
         let productoActual = null;
         let listaProductos = [];
         
-        // Función para buscar producto por código de barras
         function buscarProducto() {
             const codigo = codigoBarrasInput.value.trim();
             if (!codigo) return;
             
-            // Mostrar indicador de carga
             productoInfo.classList.add('d-none');
             productoNoEncontrado.classList.add('d-none');
             
-            // Realizar petición AJAX
             fetch(`/api/buscar-producto/?codigo=${codigo}`)
                 .then(response => response.json())
                 .then(data => {
@@ -186,7 +180,6 @@
                         productoPrecio.textContent = `$${data.precio.toFixed(2)}`;
                         productoStock.textContent = data.stock;
                         
-                        // Verificar si tiene oferta
                         if (data.precio_oferta) {
                             ofertaContainer.classList.remove('d-none');
                             productoPrecioOferta.textContent = `$${data.precio_oferta.toFixed(2)}`;
