@@ -6,30 +6,76 @@
         <div class="col-lg-12 mb-4">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-success text-white">
-                    <h4 class="mb-0"><i class="fas fa-receipt me-2"></i>Historial de Ventas</h4>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0"><i class="fas fa-receipt me-2"></i>Historial de Ventas</h4>
+                        <div class="dropdown">
+                            <button class="btn btn-light btn-sm dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-filter me-1"></i>Filtrar
+                            </button>
+                            <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                                <li><a class="dropdown-item" href="?dia=hoy">Hoy</a></li>
+                                <li><a class="dropdown-item" href="?dia=ayer">Ayer</a></li>
+                                <li><a class="dropdown-item" href="?dia=semana">Última semana</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <form method="get" class="px-3 py-2">
+                                        <div class="mb-2">
+                                            <label class="form-label small">Desde:</label>
+                                            <input type="date" name="fecha_inicio" class="form-control form-control-sm" value="{{ fecha_inicio }}">
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="form-label small">Hasta:</label>
+                                            <input type="date" name="fecha_fin" class="form-control form-control-sm" value="{{ fecha_fin }}">
+                                        </div>
+                                        <button type="submit" class="btn btn-primary btn-sm w-100">Aplicar</button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
                 <div class="card-body">
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Mostrando ventas realizadas hoy: <strong>{{ ventas.count }}</strong> ventas
+                    <div class="alert alert-info d-flex justify-content-between">
+                        <div>
+                            <i class="fas fa-info-circle me-2"></i>
+                            {% if filtro_dia == 'hoy' %}
+                                Mostrando ventas de hoy
+                            {% elif filtro_dia == 'ayer' %}
+                                Mostrando ventas de ayer
+                            {% elif filtro_dia == 'semana' %}
+                                Mostrando ventas de los últimos 7 días
+                            {% elif fecha_inicio and fecha_fin %}
+                                Mostrando ventas desde {{ fecha_inicio }} hasta {{ fecha_fin }}
+                            {% else %}
+                                Mostrando todas las ventas
+                            {% endif %}
+                        </div>
+                        <div>
+                            <strong>{{ ventas_con_detalles|length }}</strong> ventas | 
+                            <strong>{{ total_articulos }}</strong> artículos | 
+                            <strong>${{ total_ventas }}</strong> total
+                        </div>
                     </div>
                     
-                    {% if ventas %}
+                    {% if ventas_con_detalles %}
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead>
                                 <tr>
                                     <th>ID</th>
                                     <th>Fecha</th>
+                                    <th>Artículos</th>
                                     <th>Total</th>
                                     <th>Detalles</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for venta in ventas %}
+                                {% for venta_data in ventas_con_detalles %}
+                                {% with venta=venta_data.venta detalles=venta_data.detalles %}
                                 <tr>
                                     <td>#{{ venta.id }}</td>
                                     <td>{{ venta.fecha|date:"d/m/Y H:i" }}</td>
+                                    <td>{{ venta.cantidad_articulos }}</td>
                                     <td class="text-primary">${{ venta.total }}</td>
                                     <td>
                                         <button class="btn btn-sm btn-info" data-bs-toggle="collapse" data-bs-target="#detalles-{{ venta.id }}">
@@ -38,7 +84,7 @@
                                     </td>
                                 </tr>
                                 <tr class="collapse" id="detalles-{{ venta.id }}">
-                                    <td colspan="4">
+                                    <td colspan="5">
                                         <div class="card card-body bg-light">
                                             <h6 class="mb-3">Productos vendidos:</h6>
                                             <div class="table-responsive">
@@ -46,13 +92,13 @@
                                                     <thead>
                                                         <tr>
                                                             <th>Producto</th>
-                                                            <th>Precio</th>
+                                                            <th>Precio Unitario</th>
                                                             <th>Cantidad</th>
                                                             <th>Subtotal</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        {% for detalle in venta.detalles.all %}
+                                                        {% for detalle in detalles %}
                                                         <tr>
                                                             <td>{{ detalle.producto.nombre }}</td>
                                                             <td>${{ detalle.precio_unitario }}</td>
@@ -72,6 +118,7 @@
                                         </div>
                                     </td>
                                 </tr>
+                                {% endwith %}
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -79,14 +126,19 @@
                     {% else %}
                     <div class="alert alert-warning">
                         <i class="fas fa-exclamation-triangle me-2"></i>
-                        No hay ventas registradas para el día de hoy.
+                        No se encontraron ventas con los filtros seleccionados.
                     </div>
                     {% endif %}
                     
-                    <div class="d-flex justify-content-end mt-3">
+                    <div class="d-flex justify-content-between mt-3">
                         <a href="{% url 'home' %}" class="btn btn-secondary">
                             <i class="fas fa-arrow-left me-2"></i>Volver al Inicio
                         </a>
+                        <div class="btn-group">
+                            <button class="btn btn-outline-primary" disabled>
+                                <i class="fas fa-chart-bar me-2"></i>Generar Reporte
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

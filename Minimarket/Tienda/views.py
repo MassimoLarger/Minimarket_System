@@ -175,78 +175,208 @@ def gestionar_productos(request):
 
 @login_required
 def nueva_venta(request):
-    if request.method == 'POST':
-        try:
-            with transaction.atomic():
-                # Crear la venta
-                venta = Venta.objects.create(
-                    empleado=request.user,
-                    total=request.POST.get('total', 0)
-                )
-                
-                # Procesar los detalles de la venta
-                productos_ids = request.POST.getlist('producto_id[]')
-                cantidades = request.POST.getlist('cantidad[]')
-                precios = request.POST.getlist('precio[]')
-                
-                for i in range(len(productos_ids)):
-                    producto = get_object_or_404(Producto, id=productos_ids[i])
-                    cantidad = int(cantidades[i])
-                    precio = float(precios[i])
-                    
-                    # Crear detalle de venta
-                    DetalleVenta.objects.create(
-                        venta=venta,
-                        producto=producto,
-                        cantidad=cantidad,
-                        precio_unitario=precio
-                    )
-                    
-                    # Actualizar stock del producto
-                    producto.stock -= cantidad
-                    producto.save()
-                
-                messages.success(request, f'Venta #{venta.id} registrada correctamente.')
-                return redirect('historial')
-        except Exception as e:
-            messages.error(request, f'Error al procesar la venta: {e}')
-            return redirect('nueva_venta')
-    
-    # Para solicitudes GET
-    productos = Producto.objects.all()
-    return render(request, 'Tienda/nueva_venta.html', {'productos': productos})
+    producto_encontrado = None
+    error_busqueda = None
+    venta_actual = request.session.get('venta_actual', [])
+    total = sum(item['subtotal'] for item in venta_actual) if venta_actual else 0
+    venta_confirmada = False
+    venta_id = None
+    venta_fecha = None
+    total_articulos = sum(item['cantidad'] for item in venta_actual) if venta_actual else 0
 
-@login_required
-def obtener_detalle_venta(request, venta_id):
-    venta = get_object_or_404(Venta, id=venta_id)
-    detalles = DetalleVenta.objects.filter(venta=venta)
-    
-    # Verificar que el usuario sea el empleado que realizó la venta o un superusuario
-    if request.user != venta.empleado and not request.user.is_superuser:
-        messages.error(request, 'No tienes permiso para ver esta venta.')
-        return redirect('historial')
-    
-    return render(request, 'Tienda/detalle_venta.html', {
-        'venta': venta,
-        'detalles': detalles
-    })
+    if request.method == 'POST':
+        # Manejar búsqueda de producto
+        if 'buscar_codigo' in request.POST:
+            codigo_barras = request.POST.get('codigo_barras', '').strip()
+            try:
+                producto = Producto.objects.get(codigo_barras=codigo_barras)
+                producto_encontrado = {
+                    'id': producto.id,
+                    'nombre': producto.nombre,
+                    'precio': float(producto.precio),
+                    'stock': producto.stock
+                }
+            except Producto.DoesNotExist:
+                error_busqueda = "Producto no encontrado"
+        
+        # Manejar agregar producto a la venta
+        elif 'agregar_producto' in request.POST:
+            producto_id = request.POST.get('producto_id')
+            cantidad = int(request.POST.get('cantidad', 1))
+            
+            try:
+                producto = Producto.objects.get(id=producto_id)
+                if cantidad > producto.stock:
+                    error_busqueda = "No hay suficiente stock disponible"
+                else:
+                    # Buscar si el producto ya está en la venta
+                    item_existente = next((item for item in venta_actual if item['id'] == producto.id), None)
+                    
+                    if item_existente:
+                        # Actualizar cantidad si ya existe
+                        nueva_cantidad = item_existente['cantidad'] + cantidad
+                        if nueva_cantidad > producto.stock:
+                            error_busqueda = "No hay suficiente stock disponible"
+                        else:
+                            item_existente['cantidad'] = nueva_cantidad
+                            item_existente['subtotal'] = item_existente['precio'] * item_existente['cantidad']
+                    else:
+                        # Agregar nuevo producto
+                        venta_actual.append({
+                            'id': producto.id,
+                            'nombre': producto.nombre,
+                            'cantidad': cantidad,
+                            'precio': float(producto.precio),
+                            'subtotal': float(producto.precio) * cantidad
+                        })
+                    
+                    request.session['venta_actual'] = venta_actual
+                    total = sum(item['subtotal'] for item in venta_actual)
+                    total_articulos = sum(item['cantidad'] for item in venta_actual)
+            
+            except Producto.DoesNotExist:
+                error_busqueda = "Producto no encontrado"
+        
+        # Manejar eliminación de producto
+        elif 'eliminar_producto' in request.POST:
+            producto_id = int(request.POST.get('producto_id'))
+            venta_actual = [item for item in venta_actual if item['id'] != producto_id]
+            request.session['venta_actual'] = venta_actual
+            total = sum(item['subtotal'] for item in venta_actual) if venta_actual else 0
+            total_articulos = sum(item['cantidad'] for item in venta_actual) if venta_actual else 0
+            return redirect('nueva_venta')
+        
+        # Manejar cancelación de venta
+        elif 'cancelar' in request.GET:
+            if 'venta_actual' in request.session:
+                del request.session['venta_actual']
+            return redirect('nueva_venta')
+        
+        # Manejar confirmación de venta
+        elif 'confirmar_venta' in request.POST:
+            if request.POST.get('confirmar_venta') == 'si' and venta_actual:
+                try:
+                    with transaction.atomic():
+                        # Crear la venta
+                        venta = Venta.objects.create(
+                            empleado=request.user,
+                            total=total,
+                            cantidad_articulos=total_articulos  # Nuevo campo para almacenar el total de artículos
+                        )
+                        
+                        # Crear detalles de venta y actualizar stock
+                        for item in venta_actual:
+                            producto = Producto.objects.get(id=item['id'])
+                            DetalleVenta.objects.create(
+                                venta=venta,
+                                producto=producto,
+                                cantidad=item['cantidad'],
+                                precio_unitario=item['precio'],
+                                subtotal=item['subtotal']
+                            )
+                            
+                            # Descontar stock
+                            cantidad_restante = item['cantidad']
+                            lotes = LoteProducto.objects.filter(
+                                producto=producto, 
+                                cantidad_disponible__gt=0
+                            ).order_by('fecha_vencimiento')
+                            
+                            for lote_producto in lotes:
+                                if cantidad_restante <= 0:
+                                    break
+                                if lote_producto.cantidad_disponible >= cantidad_restante:
+                                    lote_producto.cantidad_disponible -= cantidad_restante
+                                    lote_producto.save()
+                                    cantidad_restante = 0
+                                else:
+                                    cantidad_restante -= lote_producto.cantidad_disponible
+                                    lote_producto.cantidad_disponible = 0
+                                    lote_producto.save()
+                            
+                            producto.stock -= item['cantidad']
+                            producto.save()
+                        
+                        # Configurar variables para mostrar venta exitosa
+                        venta_confirmada = True
+                        venta_id = venta.id
+                        venta_fecha = venta.fecha
+                        messages.success(request, f'Venta #{venta.id} registrada correctamente.')
+                        del request.session['venta_actual']  # Limpiar la venta temporal
+                
+                except Exception as e:
+                    messages.error(request, f'Error al procesar la venta: {e}')
+                    return redirect('nueva_venta')
+
+    context = {
+        'producto_encontrado': producto_encontrado,
+        'error_busqueda': error_busqueda,
+        'venta_actual': venta_actual,
+        'total': total,
+        'venta_confirmada': venta_confirmada,
+        'venta_id': venta_id,
+        'venta_fecha': venta_fecha,
+        'total_articulos': total_articulos
+    }
+    return render(request, 'Tienda/nueva_venta.html', context)
+
 
 @login_required
 def historial(request):
-    # Obtener ventas del día actual para el empleado actual
-    from datetime import datetime, time
+    from datetime import datetime, timedelta
     from django.utils import timezone
     
-    today = timezone.now().date()
-    start_of_day = datetime.combine(today, time.min)
-    end_of_day = datetime.combine(today, time.max)
+    # Obtener parámetros de filtrado
+    fecha_inicio = request.GET.get('fecha_inicio')
+    fecha_fin = request.GET.get('fecha_fin')
+    filtro_dia = request.GET.get('dia')
     
-    ventas = Venta.objects.filter(
-        empleado=request.user,
-        fecha__range=(start_of_day, end_of_day)
-    ).order_by('-fecha')
+    # Consulta base
+    ventas = Venta.objects.filter(empleado=request.user).order_by('-fecha')
     
-    return render(request, 'Tienda/historial.html', {'ventas': ventas})
+    # Aplicar filtros
+    if fecha_inicio and fecha_fin:
+        try:
+            fecha_inicio = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
+            fecha_fin = datetime.strptime(fecha_fin, '%Y-%m-%d').date() + timedelta(days=1)
+            ventas = ventas.filter(fecha__range=[fecha_inicio, fecha_fin])
+        except ValueError:
+            messages.error(request, "Formato de fecha incorrecto. Use YYYY-MM-DD")
+    
+    elif filtro_dia:
+        if filtro_dia == 'hoy':
+            hoy = timezone.now().date()
+            ventas = ventas.filter(fecha__date=hoy)
+        elif filtro_dia == 'ayer':
+            ayer = timezone.now().date() - timedelta(days=1)
+            ventas = ventas.filter(fecha__date=ayer)
+        elif filtro_dia == 'semana':
+            semana_pasada = timezone.now().date() - timedelta(days=7)
+            ventas = ventas.filter(fecha__date__gte=semana_pasada)
+    
+    # Obtener detalles para cada venta
+    ventas_con_detalles = []
+    for venta in ventas:
+        detalles = DetalleVenta.objects.filter(venta=venta).select_related('producto')
+        ventas_con_detalles.append({
+            'venta': venta,
+            'detalles': detalles
+        })
+    
+    # Calcular totales
+    total_ventas = sum(venta.total for venta in ventas)
+    total_articulos = sum(venta.cantidad_articulos for venta in ventas)
+    
+    context = {
+        'ventas_con_detalles': ventas_con_detalles,
+        'total_ventas': total_ventas,
+        'total_articulos': total_articulos,
+        'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d') if fecha_inicio else '',
+        'fecha_fin': (datetime.strptime(fecha_fin, '%Y-%m-%d').date() - timedelta(days=1)).strftime('%Y-%m-%d') if fecha_fin else '',
+        'filtro_dia': filtro_dia
+    }
+    
+    return render(request, 'Tienda/historial.html', context)
 
 @login_required
 def ofertas(request):
@@ -355,38 +485,6 @@ def ofertas(request):
         context['productos'] = Producto.objects.all()
 
     return render(request, 'Tienda/ofertas.html', context)
-
-# API para escaneo de código de barras
-@login_required
-def buscar_producto_api(request):
-    codigo = request.GET.get('codigo', '')
-    if not codigo:
-        return JsonResponse({'error': 'Código de barras no proporcionado'}, status=400)
-    
-    try:
-        producto = Producto.objects.get(codigo_barras=codigo)
-        # Verificar si tiene ofertas activas
-        oferta = Oferta.objects.filter(
-            producto=producto,
-            activa=True,
-            fecha_inicio__lte=timezone.now().date(),
-            fecha_fin__gte=timezone.now().date()
-        ).first()
-        
-        precio_oferta = None
-        if oferta:
-            descuento = producto.precio * (oferta.porcentaje_descuento / 100)
-            precio_oferta = producto.precio - descuento
-        
-        return JsonResponse({
-            'id': producto.id,
-            'nombre': producto.nombre,
-            'precio': float(producto.precio),
-            'precio_oferta': float(precio_oferta) if precio_oferta else None,
-            'stock': producto.stock
-        })
-    except Producto.DoesNotExist:
-        return JsonResponse({'error': 'Producto no encontrado'}, status=404)
 
 # Vista para verificar contraseña antes de acceder a gestión de proveedores
 @login_required

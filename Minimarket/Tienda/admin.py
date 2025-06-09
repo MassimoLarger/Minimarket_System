@@ -1,8 +1,8 @@
 from django.contrib import admin
 from .models import (
     Minimercado, Proveedor, Lote, Producto, LoteProducto,
-    Registro_compra_proveedor, Venta, DetalleVenta,
-    Registro_Venta, Oferta, Oferta_vencimiento, Oferta_producto
+    Registro_compra_proveedor, Venta, DetalleVenta, Oferta,
+    Oferta_vencimiento, Oferta_producto
 )
 
 # Register your models here.
@@ -70,20 +70,14 @@ class DetalleVentaInline(admin.TabularInline):
 class VentaAdmin(admin.ModelAdmin):
     search_fields = ['empleado__username', 'id']
     list_filter = ['fecha', 'empleado']
-    list_display = ('id', 'empleado', 'fecha', 'total')
+    list_display = ('id', 'empleado', 'fecha', 'total', 'cantidad_articulos')
     inlines = [DetalleVentaInline]
     list_per_page = 15
 
 class DetalleVentaAdmin(admin.ModelAdmin):
     search_fields = ['venta__id', 'producto__nombre']
     list_filter = ['venta', 'producto']
-    list_display = ('venta', 'producto', 'cantidad', 'precio_unitario')
-    list_per_page = 15
-
-class RegistroVentaAdmin(admin.ModelAdmin):
-    search_fields = ['minimarket__nombre_minimercado', 'descripcion']
-    list_filter = ['fecha_venta', 'minimarket']
-    list_display = ('minimarket', 'descripcion', 'fecha_venta', 'total_venta')
+    list_display = ('venta', 'producto', 'cantidad', 'precio_unitario', 'subtotal')
     list_per_page = 15
 
 admin.site.register(Minimercado, MinimercadoAdmin)
@@ -94,7 +88,6 @@ admin.site.register(LoteProducto, LoteProductoAdmin)
 admin.site.register(Registro_compra_proveedor, RegistroCompraProveedorAdmin)
 admin.site.register(Venta, VentaAdmin)
 admin.site.register(DetalleVenta, DetalleVentaAdmin)
-admin.site.register(Registro_Venta, RegistroVentaAdmin)
 admin.site.register(Oferta, OfertaAdmin)
 admin.site.register(Oferta_vencimiento, OfertaVencimientoAdmin)
 admin.site.register(Oferta_producto, OfertaProductoAdmin)

@@ -69,30 +69,23 @@ class Registro_compra_proveedor(models.Model):
         return f"{self.proveedor} - {self.productos} - {self.valor_total}"
 
 class Venta(models.Model):
-    empleado = models.ForeignKey(User, on_delete=models.CASCADE)
+    empleado = models.ForeignKey(User, on_delete=models.PROTECT)
     fecha = models.DateTimeField(auto_now_add=True)
     total = models.PositiveIntegerField(default=0)
+    cantidad_articulos = models.PositiveIntegerField(default=0) 
     
     def __str__(self):
         return f"Venta #{self.id} - {self.empleado.username} - {self.fecha.strftime('%d/%m/%Y %H:%M')}"
 
 class DetalleVenta(models.Model):
-    venta = models.ForeignKey(Venta, on_delete=models.CASCADE, related_name='detalles')
-    producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
-    cantidad = models.PositiveIntegerField(default=1)
+    venta = models.ForeignKey(Venta, related_name='detalles', on_delete=models.CASCADE)
+    producto = models.ForeignKey(Producto, on_delete=models.PROTECT)
+    cantidad = models.PositiveIntegerField(default=0)
     precio_unitario = models.PositiveIntegerField(default=0)
+    subtotal = models.PositiveIntegerField(default=0)
     
     def __str__(self):
         return f"Detalle Venta #{self.venta.id} - {self.producto.nombre} x{self.cantidad}"
-
-class Registro_Venta(models.Model):
-    minimarket = models.ForeignKey(Minimercado, on_delete=models.CASCADE)
-    descripcion = models.CharField(max_length=100, default='')
-    fecha_venta = models.DateField(auto_now_add=True)
-    total_venta = models.PositiveIntegerField(default=0)
-    
-    def __str__(self):
-        return f"Registro Venta {self.id} - {self.minimarket.nombre_minimercado} - {self.total_venta}"
 
 class Oferta(models.Model):
     tipo_oferta = models.CharField(max_length=100, default='')
