@@ -27,6 +27,14 @@
                         <option value="stock">Ordenar por stock</option>
                     </select>
                 </div>
+                <div class="col-md-4">
+                    <select id="filtro-categoria" class="form-select">
+                        <option value="">Todas las Categorías</option>
+                        {% for categoria in categorias %}
+                        <option value="{{ categoria.id }}">{{ categoria.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
             </div>
         </div>
     </div>
@@ -52,20 +60,22 @@
                             <th>Precio</th>
                             <th>Costo</th>
                             <th>Stock Mín.</th>
+                            <th>Categoría</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for producto in productos %}
-                        <tr class="fila-producto" data-nombre="{{ producto.nombre|lower }}" data-codigo="{{ producto.codigo_barras }}" data-stock="{{ producto.stock }}" data-precio="{{ producto.precio }}" data-costo="{{ producto.costo }}" data-minimal_stock="{{ producto.minimal_stock }}">
+                        <tr class="fila-producto" data-nombre="{{ producto.nombre|lower }}" data-codigo="{{ producto.codigo_barras }}" data-stock="{{ producto.stock }}" data-precio="{{ producto.precio }}" data-costo="{{ producto.costo }}" data-minimal_stock="{{ producto.minimal_stock }}" data-categoria-id="{{ producto.categoria.id|default:'' }}">
                             <td>{{ producto.nombre }}</td>
                             <td>{{ producto.codigo_barras }}</td>
                             <td>{{ producto.stock }}</td>
                             <td>${{ producto.precio|floatformat:0 }}</td>
                             <td>${{ producto.costo|floatformat:0 }}</td>
                             <td>{{ producto.minimal_stock }}</td>
+                            <td>{{ producto.categoria.nombre|default:"N/A" }}</td>
                             <td>
-                                <button class="btn btn-sm btn-warning editar-producto" data-id="{{ producto.id }}" data-nombre="{{ producto.nombre }}" data-codigo="{{ producto.codigo_barras }}" data-stock="{{ producto.stock }}" data-precio="{{ producto.precio }}" data-costo="{{ producto.costo }}" data-minimal_stock="{{ producto.minimal_stock }}"><i class="fas fa-edit"></i></button>
+                                <button class="btn btn-sm btn-warning editar-producto" data-id="{{ producto.id }}" data-nombre="{{ producto.nombre }}" data-codigo="{{ producto.codigo_barras }}" data-stock="{{ producto.stock }}" data-precio="{{ producto.precio }}" data-costo="{{ producto.costo }}" data-minimal_stock="{{ producto.minimal_stock }}" data-categoria-id="{{ producto.categoria.id|default:'' }}"><i class="fas fa-edit"></i></button>
                                 <button class="btn btn-sm btn-danger eliminar-producto" data-id="{{ producto.id }}"><i class="fas fa-trash"></i></button>
                             </td>
                         </tr>
@@ -123,6 +133,15 @@
                         <label for="minimal_stock" class="form-label">Stock Mínimo</label>
                         <input type="number" class="form-control" id="minimal_stock" name="minimal_stock" required min="0">
                     </div>
+                    <div class="mb-3">
+                        <label for="categoria" class="form-label">Categoría</label>
+                        <select class="form-select" id="categoria" name="categoria">
+                            <option value="">-- Seleccione Categoría --</option>
+                            {% for categoria in categorias %}
+                            <option value="{{ categoria.id }}">{{ categoria.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </form>
             </div>
             <div class="modal-footer">
@@ -146,13 +165,15 @@
         const btnGuardar = document.getElementById('btn-guardar-producto');
         const buscarInput = document.getElementById('buscar-producto');
         const filtroSelect = document.getElementById('filtro-producto');
-        const btnBuscar = document.getElementById('btn-buscar');
-        const tablaProductos = document.getElementById('tabla-productos');
-        const noResultados = document.getElementById('no-resultados');
+            const filtroCategoriaSelect = document.getElementById('filtro-categoria');
+            const btnBuscar = document.getElementById('btn-buscar');
+            const tablaProductos = document.getElementById('tabla-productos');
+            const noResultados = document.getElementById('no-resultados');
 
         function filtrarProductos() {
             const textoBusqueda = buscarInput.value.toLowerCase().trim();
             const filtro = filtroSelect.value;
+            const filtroCategoria = filtroCategoriaSelect.value;
             let hayResultados = false;
             const filas = document.querySelectorAll('.fila-producto');
             let filasArray = Array.from(filas);
@@ -173,11 +194,17 @@
             tbody.innerHTML = '';
             
             filasArray.forEach(fila => {
-                const match = Object.values(fila.dataset).some(val => 
-                    val.toString().toLowerCase().includes(textoBusqueda)
-                );
+                const nombreProducto = fila.dataset.nombre;
+                const codigoProducto = fila.dataset.codigo;
+                const categoriaProductoId = fila.dataset.categoriaId;
+
+                const matchTexto = nombreProducto.includes(textoBusqueda) || 
+                                   codigoProducto.includes(textoBusqueda) || 
+                                   textoBusqueda === '';
                 
-                if (match || textoBusqueda === '') {
+                const matchCategoria = (filtroCategoria === '' || categoriaProductoId === filtroCategoria);
+
+                if ((matchTexto && matchCategoria)) {
                     tbody.appendChild(fila);
                     hayResultados = true;
                 }
@@ -194,6 +221,7 @@
             buscarInput.addEventListener('keyup', (e) => e.key === 'Enter' && filtrarProductos());
         }
         if (filtroSelect) filtroSelect.addEventListener('change', filtrarProductos);
+        if (filtroCategoriaSelect) filtroCategoriaSelect.addEventListener('change', filtrarProductos);
 
         function configurarBotonesEditar() {
             document.querySelectorAll('.editar-producto').forEach(btn => {
@@ -207,6 +235,8 @@
                     document.getElementById('precio').value = this.dataset.precio;
                     document.getElementById('costo').value = this.dataset.costo;
                     document.getElementById('minimal_stock').value = this.dataset.minimal_stock;
+                    document.getElementById('categoria').value = this.dataset.categoriaId;
+                    document.getElementById('categoria').value = this.dataset.categoriaId;
                     
                     modalTitle.innerHTML = '<i class="fas fa-edit me-2"></i>Editar Producto';
                     btnGuardar.textContent = 'Actualizar Producto';
