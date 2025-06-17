@@ -1,0 +1,253 @@
+{% extends 'Tienda/base_layout.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4"><i class="fas fa-tags me-2"></i>Gestionar Categorías</h2>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0"><i class="fas fa-search me-2"></i>Buscar Categorías</h5>
+        </div>
+        <div class="card-body">
+            <div class="input-group mb-3">
+                <input type="text" id="buscar-categoria" class="form-control" placeholder="Buscar por nombre...">
+                <button class="btn btn-primary" type="button" id="btn-buscar-categoria">
+                    <i class="fas fa-search"></i> Buscar
+                </button>
+            </div>
+            <small class="text-muted">La búsqueda se realiza en tiempo real mientras escribes</small>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#nuevaCategoriaModal">
+            <i class="fas fa-plus-circle me-2"></i>Añadir Categoría
+        </button>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i>Listado de Categorías</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover" id="tabla-categorias">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for categoria in categorias %}
+                        <tr class="fila-categoria" data-nombre="{{ categoria.nombre|lower }}">
+                            <td>{{ categoria.nombre }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-warning editar-categoria" data-id="{{ categoria.id }}" data-nombre="{{ categoria.nombre }}"><i class="fas fa-edit"></i></button>
+                                <button class="btn btn-sm btn-danger eliminar-categoria" data-id="{{ categoria.id }}"><i class="fas fa-trash"></i></button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr id="no-resultados-categorias">
+                            <td colspan="2" class="text-center">No hay categorías registradas.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end mt-3">
+        <a href="{% url 'home' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Volver al Inicio
+        </a>
+    </div>
+</div>
+
+<div class="modal fade" id="nuevaCategoriaModal" tabindex="-1" aria-labelledby="nuevaCategoriaModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="nuevaCategoriaModalLabel"><i class="fas fa-plus-circle me-2"></i>Añadir Nueva Categoría</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-categoria" method="post" action="{% url 'gestionar_categorias' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_categoria" id="categoria-action">
+                    <input type="hidden" name="categoria_id" id="categoria-id">
+                    <div class="mb-3">
+                        <label for="nombre-categoria" class="form-label">Nombre de la Categoría</label>
+                        <input type="text" class="form-control" id="nombre-categoria" name="nombre" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="form-categoria" class="btn btn-success" id="btn-guardar-categoria">Guardar Categoría</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const nuevaCategoriaModal = new bootstrap.Modal(document.getElementById('nuevaCategoriaModal'));
+        const formCategoria = document.getElementById('form-categoria');
+        const categoriaActionInput = document.getElementById('categoria-action');
+        const categoriaIdInput = document.getElementById('categoria-id');
+        const modalTitle = document.getElementById('nuevaCategoriaModalLabel');
+        const btnGuardar = document.getElementById('btn-guardar-categoria');
+        const buscarInput = document.getElementById('buscar-categoria');
+        const btnBuscar = document.getElementById('btn-buscar-categoria');
+        const tablaCategorias = document.getElementById('tabla-categorias');
+        const noResultados = document.getElementById('no-resultados-categorias');
+
+        function filtrarCategorias() {
+            const textoBusqueda = buscarInput.value.toLowerCase().trim();
+            let hayResultados = false;
+            const filas = document.querySelectorAll('.fila-categoria');
+            
+            filas.forEach(fila => {
+                const nombreCategoria = fila.dataset.nombre;
+                if (nombreCategoria.includes(textoBusqueda) || textoBusqueda === '') {
+                    fila.style.display = '';
+                    hayResultados = true;
+                } else {
+                    fila.style.display = 'none';
+                }
+            });
+
+            if (noResultados) {
+                noResultados.style.display = hayResultados ? 'none' : '';
+            }
+        }
+
+        if (btnBuscar) btnBuscar.addEventListener('click', filtrarCategorias);
+        if (buscarInput) {
+            buscarInput.addEventListener('input', filtrarCategorias);
+            buscarInput.addEventListener('keyup', (e) => e.key === 'Enter' && filtrarCategorias());
+        }
+
+        function configurarBotonesEditar() {
+            document.querySelectorAll('.editar-categoria').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    categoriaActionInput.value = 'edit_categoria';
+                    categoriaIdInput.value = this.dataset.id;
+                    
+                    document.getElementById('nombre-categoria').value = this.dataset.nombre;
+                    
+                    modalTitle.innerHTML = '<i class="fas fa-edit me-2"></i>Editar Categoría';
+                    btnGuardar.textContent = 'Actualizar Categoría';
+                    btnGuardar.classList.replace('btn-success', 'btn-warning');
+                    
+                    nuevaCategoriaModal.show();
+                });
+            });
+        }
+
+        function configurarBotonesEliminar() {
+            document.querySelectorAll('.eliminar-categoria').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const categoriaId = this.dataset.id;
+                    const categoriaNombre = this.closest('tr').querySelector('td:first-child').textContent;
+                    
+                    if (confirm(`¿Estás seguro de eliminar la categoría "${categoriaNombre}"?`)) {
+                        const formData = new FormData();
+                        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+                        formData.append('action', 'delete_categoria');
+                        formData.append('categoria_id', categoriaId);
+
+                        fetch("{% url 'gestionar_categorias' %}", {
+                            method: 'POST',
+                            body: formData,
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Accept': 'application/json'
+                            }
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                return response.json().then(err => { throw err; });
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (data.success) {
+                                alert(data.message);
+                                this.closest('tr').remove();
+                                if (document.querySelectorAll('.fila-categoria').length === 0) {
+                                    noResultados.style.display = '';
+                                }
+                            } else {
+                                alert(data.message || 'Error al eliminar la categoría');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert(error.message || 'Error al procesar la solicitud');
+                        });
+                    }
+                });
+            });
+        }
+
+        formCategoria.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (!this.checkValidity()) {
+                e.stopPropagation();
+                this.classList.add('was-validated');
+                return;
+            }
+            
+            const formData = new FormData(this);
+            
+            fetch("{% url 'gestionar_categorias' %}", {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error en la respuesta del servidor');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    nuevaCategoriaModal.hide();
+                    location.reload();
+                } else {
+                    alert(data.error || 'Error al guardar la categoría');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al procesar la solicitud: ' + error.message);
+            });
+        });
+
+        configurarBotonesEditar();
+        configurarBotonesEliminar();
+
+        document.querySelector('[data-bs-target="#nuevaCategoriaModal"]').addEventListener('click', function() {
+            formCategoria.reset();
+            categoriaActionInput.value = 'add_categoria';
+            categoriaIdInput.value = '';
+            modalTitle.innerHTML = '<i class="fas fa-plus-circle me-2"></i>Añadir Nueva Categoría';
+            btnGuardar.textContent = 'Guardar Categoría';
+            btnGuardar.classList.replace('btn-warning', 'btn-success');
+            formCategoria.classList.remove('was-validated');
+        });
+
+        filtrarCategorias();
+    });
+</script>
+{% endblock %}
