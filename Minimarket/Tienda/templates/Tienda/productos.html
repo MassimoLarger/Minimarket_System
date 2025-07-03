@@ -43,6 +43,9 @@
         <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#nuevoProductoModal">
             <i class="fas fa-plus-circle me-2"></i>Añadir Producto
         </button>
+        <a href="{% url 'gestionar_categorias' %}" class="btn btn-info ms-2">
+            <i class="fas fa-tags me-2"></i>Ver Categorías
+        </a>
     </div>
 
     <div class="card border-0 shadow-sm">
@@ -115,7 +118,7 @@
                     </div>
                     <div class="mb-3">
                         <label for="codigo_barras" class="form-label">Código de Barras</label>
-                        <input type="text" class="form-control" id="codigo_barras" name="codigo_barras" required>
+                        <input type="number" class="form-control" id="codigo_barras" name="codigo_barras" required>
                     </div>
                     <div class="mb-3">
                         <label for="stock" class="form-label">Stock</label>
@@ -155,7 +158,26 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+    function showSwalSuccess(message) {
+        Swal.fire({
+            icon: 'success',
+            title: 'Éxito',
+            text: message,
+            timer: 1200,
+            showConfirmButton: false
+        });
+    }
+    function showSwalError(message) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: message,
+            timer: 2000,
+            showConfirmButton: false
+        });
+    }
     document.addEventListener('DOMContentLoaded', function() {
         const nuevoProductoModal = new bootstrap.Modal(document.getElementById('nuevoProductoModal'));
         const formProducto = document.getElementById('form-producto');
@@ -249,50 +271,58 @@
 
         // Configurar botones de eliminar
         function configurarBotonesEliminar() {
-        document.querySelectorAll('.eliminar-producto').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const productoId = this.dataset.id;
-                const productoNombre = this.closest('tr').querySelector('td:first-child').textContent;
-                
-                if (confirm(`¿Estás seguro de eliminar el producto "${productoNombre}"?`)) {
-                    const formData = new FormData();
-                    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-                    formData.append('action', 'delete_producto');
-                    formData.append('producto_id', productoId);
-
-                    fetch("{% url 'gestionar_productos' %}", {
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'Accept': 'application/json'
+            document.querySelectorAll('.eliminar-producto').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const productoId = this.dataset.id;
+                    const productoNombre = this.closest('tr').querySelector('td:first-child').textContent;
+                    Swal.fire({
+                        title: `¿Estás seguro de eliminar el producto "${productoNombre}"?`,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#3085d6',
+                        confirmButtonText: 'Sí, eliminar',
+                        cancelButtonText: 'Cancelar'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            const formData = new FormData();
+                            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+                            formData.append('action', 'delete_producto');
+                            formData.append('producto_id', productoId);
+                            fetch("{% url 'gestionar_productos' %}", {
+                                method: 'POST',
+                                body: formData,
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'Accept': 'application/json'
+                                }
+                            })
+                            .then(response => {
+                                if (!response.ok) {
+                                    return response.json().then(err => { throw err; });
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                if (data.success) {
+                                    showSwalSuccess(data.message);
+                                    this.closest('tr').remove();
+                                    if (document.querySelectorAll('.fila-producto').length === 0) {
+                                        noResultados.style.display = '';
+                                    }
+                                } else {
+                                    showSwalError(data.message || 'Error al eliminar el producto');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                showSwalError(error.message || 'Error al procesar la solicitud');
+                            });
                         }
-                    })
-                    .then(response => {
-                        if (!response.ok) {
-                            return response.json().then(err => { throw err; });
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (data.success) {
-                            alert(data.message);
-                            this.closest('tr').remove();
-                            if (document.querySelectorAll('.fila-producto').length === 0) {
-                                noResultados.style.display = '';
-                            }
-                        } else {
-                            alert(data.message || 'Error al eliminar el producto');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert(error.message || 'Error al procesar la solicitud');
                     });
-                }
+                });
             });
-        });
-    }
+        }
 
         // Configurar envío del formulario
         formProducto.addEventListener('submit', function(e) {
@@ -302,9 +332,7 @@
                 this.classList.add('was-validated');
                 return;
             }
-            
             const formData = new FormData(this);
-            
             fetch("{% url 'gestionar_productos' %}", {
                 method: 'POST',
                 body: formData,
@@ -313,23 +341,24 @@
                     'X-CSRFToken': '{{ csrf_token }}'
                 }
             })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Error en la respuesta del servidor');
+            .then(async response => {
+                let data;
+                try {
+                    data = await response.json();
+                } catch (err) {
+                    throw new Error('Respuesta inválida del servidor');
                 }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
+                if (response.ok && data.success) {
                     nuevoProductoModal.hide();
-                    location.reload();
+                    showSwalSuccess(data.message || 'Producto guardado correctamente');
+                    setTimeout(() => location.reload(), 1200);
                 } else {
-                    alert(data.error || 'Error al guardar el producto');
+                    showSwalError(data.message || data.error || 'Error al guardar el producto');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error al procesar la solicitud: ' + error.message);
+                showSwalError('Error al procesar la solicitud: ' + error.message);
             });
         });
 

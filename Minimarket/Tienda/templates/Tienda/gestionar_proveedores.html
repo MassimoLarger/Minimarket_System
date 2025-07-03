@@ -54,13 +54,13 @@
                     </thead>
                     <tbody>
                         {% for proveedor in proveedores %}
-                        <tr class="fila-proveedor" data-nombre="{{ proveedor.nombre_proveedor|lower }}" data-rut="{{ proveedor.rut }}" data-direccion="{{ proveedor.direccion|lower }}" data-telefono="{{ proveedor.telefono }}">
+                        <tr class="fila-proveedor" data-nombre="{{ proveedor.nombre_proveedor|lower }}" data-rut="{{ proveedor.rut }}" data-verify_digit="{% if proveedor.verify_digit %}{{ proveedor.verify_digit|upper }}{% else %}K{% endif %}" data-direccion="{{ proveedor.direccion|lower }}" data-telefono="{{ proveedor.telefono }}">
                             <td>{{ proveedor.nombre_proveedor }}</td>
-                            <td>{{ proveedor.rut }}</td>
+                            <td>{{ proveedor.rut }}-{% if proveedor.verify_digit %}{{ proveedor.verify_digit|upper }}{% else %}K{% endif %}</td>
                             <td>{{ proveedor.direccion }}</td>
                             <td>{{ proveedor.telefono }}</td>
                             <td>
-                                <button class="btn btn-sm btn-warning editar-proveedor" data-id="{{ proveedor.id }}" data-nombre="{{ proveedor.nombre_proveedor }}" data-rut="{{ proveedor.rut }}" data-direccion="{{ proveedor.direccion }}" data-telefono="{{ proveedor.telefono }}"><i class="fas fa-edit"></i></button>
+                                <button class="btn btn-sm btn-warning editar-proveedor" data-id="{{ proveedor.id }}" data-nombre="{{ proveedor.nombre_proveedor }}" data-rut="{{ proveedor.rut }}" data-verify_digit="{% if proveedor.verify_digit %}{{ proveedor.verify_digit|upper }}{% else %}K{% endif %}" data-direccion="{{ proveedor.direccion }}" data-telefono="{{ proveedor.telefono }}"><i class="fas fa-edit"></i></button>
                                 <button class="btn btn-sm btn-danger eliminar-proveedor" data-id="{{ proveedor.id }}"><i class="fas fa-trash"></i></button>
                             </td>
                         </tr>
@@ -101,7 +101,11 @@
                     </div>
                     <div class="mb-3">
                         <label for="rut" class="form-label">RUT</label>
-                        <input type="text" class="form-control" id="rut" name="rut" required pattern="[0-9]+-[0-9kK]" maxlength="15">
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="rut" name="rut" required min="1" placeholder="Ej: 12345678">
+                            <span class="input-group-text">-</span>
+                            <input type="text" class="form-control" id="verify_digit" name="verify_digit" required maxlength="1" pattern="[0-9kK]" placeholder="K o dígito">
+                        </div>
                         <div class="form-text">Formato: 12345678-9 o 12345678-K</div>
                     </div>
                     <div class="mb-3">
@@ -110,7 +114,7 @@
                     </div>
                     <div class="mb-3">
                         <label for="telefono" class="form-label">Teléfono</label>
-                        <input type="text" class="form-control" id="telefono" name="telefono" required pattern="[0-9]+">
+                        <input type="number" class="form-control" id="telefono" name="telefono" required pattern="[0-9]+">
                         <div class="form-text">Solo números, sin espacios ni guiones.</div>
                     </div>
                 </form>
@@ -126,6 +130,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     const nuevoProveedorModal = new bootstrap.Modal(document.getElementById('nuevoProveedorModal'));
     const formProveedor = document.getElementById('form-proveedor');
@@ -226,10 +231,11 @@
                 const rut = btn.dataset.rut;
                 const direccion = btn.dataset.direccion;
                 const telefono = btn.dataset.telefono;
-                
+                const verify_digit = btn.dataset.verify_digit;
                 // Llenar el formulario con los datos del proveedor
                 document.getElementById('nombre_proveedor').value = nombre;
                 document.getElementById('rut').value = rut;
+                document.getElementById('verify_digit').value = verify_digit;
                 document.getElementById('direccion').value = direccion;
                 document.getElementById('telefono').value = telefono;
                 
@@ -254,11 +260,30 @@
     // La configuración de los botones de eliminar ahora se maneja en la función configurarBotonesEliminar()
 
     // Prevenir que el formulario redirija a home
+    // Funciones SweetAlert2 para mensajes de éxito y error
+    function showSwalSuccess(message) {
+        Swal.fire({
+            icon: 'success',
+            title: 'Éxito',
+            text: message,
+            confirmButtonColor: '#3085d6',
+            timer: 1500
+        });
+    }
+    function showSwalError(message) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: message,
+            confirmButtonColor: '#d33'
+        });
+    }
     formProveedor.addEventListener('submit', function(e) {
         e.preventDefault();
         if (!this.checkValidity()) {
             e.stopPropagation();
             this.classList.add('was-validated');
+            showSwalError('Por favor, completa correctamente todos los campos obligatorios.');
             return;
         }
         const formData = new FormData(this);
@@ -280,7 +305,6 @@
             }
             return cookieValue;
         }
-        // Usar la URL de Django directamente para evitar errores de [object HTMLInputElement]
         const postUrl = "{% url 'gestionar_proveedores' %}";
         fetch(postUrl, {
             method: 'POST',
@@ -293,127 +317,98 @@
             }
         })
         .then(response => {
-            if (response.ok) {
-                return response.json();
-            } else {
-                return response.text().then(text => {
-                    throw new Error('Error al guardar el proveedor: ' + text);
-                });
-            }
+            return response.json().then(data => {
+                if (!response.ok || data.success === false) {
+                    throw new Error(data.message || 'Error al guardar el proveedor.');
+                }
+                return data;
+            });
         })
         .then(data => {
-            nuevoProveedorModal.hide();
-            if (formData.get('action') === 'add_proveedor') {
-                const tbody = document.querySelector('#tabla-proveedores tbody');
-                const noResultados = document.getElementById('no-resultados');
-                if (noResultados) {
-                    noResultados.style.display = 'none';
-                }
-                const nuevaFila = document.createElement('tr');
-                nuevaFila.className = 'fila-proveedor';
-                nuevaFila.dataset.nombre = formData.get('nombre_proveedor').toLowerCase();
-                nuevaFila.dataset.rut = formData.get('rut');
-                nuevaFila.dataset.direccion = formData.get('direccion').toLowerCase();
-                nuevaFila.dataset.telefono = formData.get('telefono');
-                nuevaFila.innerHTML = `
-                    <td>${formData.get('nombre_proveedor')}</td>
-                    <td>${formData.get('rut')}</td>
-                    <td>${formData.get('direccion')}</td>
-                    <td>${formData.get('telefono')}</td>
-                    <td>
-                        <button class="btn btn-sm btn-warning editar-proveedor" data-id="${data.proveedor.id}" data-nombre="${formData.get('nombre_proveedor')}" data-rut="${formData.get('rut')}" data-direccion="${formData.get('direccion')}" data-telefono="${formData.get('telefono')}"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-sm btn-danger eliminar-proveedor" data-id="${data.proveedor.id}"><i class="fas fa-trash"></i></button>
-                    </td>
-                `;
-                tbody.appendChild(nuevaFila);
-                configurarBotonesEditar();
-                configurarBotonesEliminar();
-            } else if (formData.get('action') === 'edit_proveedor') {
-                const fila = document.querySelector(`button.editar-proveedor[data-id="${formData.get('proveedor_id')}"]`).closest('tr');
-                if (fila) {
-                    fila.dataset.nombre = formData.get('nombre_proveedor').toLowerCase();
-                    fila.dataset.rut = formData.get('rut');
-                    fila.dataset.direccion = formData.get('direccion').toLowerCase();
-                    fila.dataset.telefono = formData.get('telefono');
-                    fila.cells[0].textContent = formData.get('nombre_proveedor');
-                    fila.cells[1].textContent = formData.get('rut');
-                    fila.cells[2].textContent = formData.get('direccion');
-                    fila.cells[3].textContent = formData.get('telefono');
-                    const btnEditar = fila.querySelector('.editar-proveedor');
-                    btnEditar.dataset.nombre = formData.get('nombre_proveedor');
-                    btnEditar.dataset.rut = formData.get('rut');
-                    btnEditar.dataset.direccion = formData.get('direccion');
-                    btnEditar.dataset.telefono = formData.get('telefono');
-                    configurarBotonesEditar();
-                    configurarBotonesEliminar();
+            if (data.success) {
+                showSwalSuccess(data.message);
+                setTimeout(function() { location.reload(); }, 1500);
+            } else {
+                let errorMsg = data.error || 'Ocurrió un error al agregar el proveedor.';
+                if (errorMsg === 'No puedes ingresar solo espacios en la dirección.') {
+                    showSwalError('No puedes ingresar solo espacios en la dirección.');
+                } else {
+                    showSwalError(errorMsg);
                 }
             }
-            alert(data.message || 'Operación completada con éxito');
-            filtrarProveedores();
+            nuevoProveedorModal.hide();
+            setTimeout(() => location.reload(), 1200);
+            showSwalSuccess(data.message || 'Operación completada con éxito');
         })
         .catch(error => {
-            alert('Error: ' + error.message);
+            showSwalError(error.message);
         });
     });
     
     // Función para manejar la eliminación de proveedores
     function eliminarProveedorHandler(event) {
         const proveedorId = event.currentTarget.dataset.id;
-        if (confirm('¿Estás seguro de que deseas eliminar este proveedor?')) {
-            // Crear FormData para enviar la solicitud POST
-            const formData = new FormData();
-            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-            formData.append('action', 'delete_proveedor');
-            formData.append('proveedor_id', proveedorId);
-            
-            // Enviar solicitud mediante fetch
-            fetch('{% url "gestionar_proveedores" %}', {
-                method: 'POST',
-                body: formData,
-                credentials: 'same-origin',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => {
-                if (response.ok) {
-                    // Eliminar la fila de la tabla o recargar la página
-                    let fila = null;
-                    if (event.currentTarget) {
-                        fila = event.currentTarget.closest('tr');
+        Swal.fire({
+            title: '¿Estás seguro de que deseas eliminar este proveedor?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const formData = new FormData();
+                formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+                formData.append('action', 'delete_proveedor');
+                formData.append('proveedor_id', proveedorId);
+                fetch('{% url "gestionar_proveedores" %}', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
                     }
-                    if (fila) {
-                        fila.remove();
-                        // Si no quedan filas, mostrar mensaje de no resultados
-                        if (document.querySelectorAll('.fila-proveedor').length === 0) {
-                            if (noResultados) {
-                                noResultados.style.display = '';
-                                noResultados.querySelector('td').textContent = 'No hay proveedores registrados.';
-                            }
-                        }
-                        configurarBotonesEditar();
-                        configurarBotonesEliminar();
+                })
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
                     } else {
-                        window.location.reload();
+                        return response.text().then(text => {
+                            throw new Error('Error al eliminar el proveedor: ' + text);
+                        });
                     }
-                    return response.json();
-                } else {
-                    return response.text().then(text => {
-                        throw new Error('Error al eliminar el proveedor: ' + text);
-                    });
-                }
-            })
-            .then(data => {
-                if (data && data.message) {
-                    alert(data.message);
-                }
-                // Aplicar filtros actuales
-                filtrarProveedores();
-            })
-            .catch(error => {
-                alert('Error: ' + error.message);
-            });
-        }
+                })
+                .then(data => {
+                    if (data && data.message) {
+                        let reloaded = false;
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Éxito',
+                            text: data.message,
+                            confirmButtonColor: '#3085d6',
+                            allowOutsideClick: true,
+                            allowEscapeKey: true,
+                            timer: 2000
+                        }).then(() => {
+                            if (!reloaded) {
+                                reloaded = true;
+                                location.reload();
+                            }
+                        });
+                        setTimeout(() => {
+                            if (!reloaded) {
+                                reloaded = true;
+                                location.reload();
+                            }
+                        }, 3000);
+                    }
+                })
+                .catch(error => {
+                    showSwalError('Error: ' + error.message);
+                });
+            }
+        });
     }
     
     // Configurar botones de eliminar

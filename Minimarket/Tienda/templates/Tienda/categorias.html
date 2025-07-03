@@ -23,6 +23,9 @@
         <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#nuevaCategoriaModal">
             <i class="fas fa-plus-circle me-2"></i>Añadir Categoría
         </button>
+        <a href="{% url 'gestionar_productos' %}" class="btn btn-info ms-2">
+            <i class="fas fa-boxes me-2"></i>Ver Productos
+        </a>
     </div>
 
     <div class="card border-0 shadow-sm">
@@ -94,7 +97,28 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+    function showSwalSuccess(message) {
+        Swal.fire({
+            icon: 'success',
+            title: '¡Éxito!',
+            text: message,
+            confirmButtonColor: '#3085d6',
+            timer: 1800,
+            timerProgressBar: true
+        });
+    }
+    function showSwalError(message) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: message,
+            confirmButtonColor: '#d33',
+            timer: 2200,
+            timerProgressBar: true
+        });
+    }
     document.addEventListener('DOMContentLoaded', function() {
         const nuevaCategoriaModal = new bootstrap.Modal(document.getElementById('nuevaCategoriaModal'));
         const formCategoria = document.getElementById('form-categoria');
@@ -155,43 +179,52 @@
                 btn.addEventListener('click', function() {
                     const categoriaId = this.dataset.id;
                     const categoriaNombre = this.closest('tr').querySelector('td:first-child').textContent;
-                    
-                    if (confirm(`¿Estás seguro de eliminar la categoría "${categoriaNombre}"?`)) {
-                        const formData = new FormData();
-                        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-                        formData.append('action', 'delete_categoria');
-                        formData.append('categoria_id', categoriaId);
-
-                        fetch("{% url 'gestionar_categorias' %}", {
-                            method: 'POST',
-                            body: formData,
-                            headers: {
-                                'X-Requested-With': 'XMLHttpRequest',
-                                'Accept': 'application/json'
-                            }
-                        })
-                        .then(response => {
-                            if (!response.ok) {
-                                return response.json().then(err => { throw err; });
-                            }
-                            return response.json();
-                        })
-                        .then(data => {
-                            if (data.success) {
-                                alert(data.message);
-                                this.closest('tr').remove();
-                                if (document.querySelectorAll('.fila-categoria').length === 0) {
-                                    noResultados.style.display = '';
+                    Swal.fire({
+                        title: `¿Estás seguro de eliminar la categoría "${categoriaNombre}"?`,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#3085d6',
+                        confirmButtonText: 'Sí, eliminar',
+                        cancelButtonText: 'Cancelar'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            const formData = new FormData();
+                            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+                            formData.append('action', 'delete_categoria');
+                            formData.append('categoria_id', categoriaId);
+                            fetch("{% url 'gestionar_categorias' %}", {
+                                method: 'POST',
+                                body: formData,
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'Accept': 'application/json'
                                 }
-                            } else {
-                                alert(data.message || 'Error al eliminar la categoría');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            alert(error.message || 'Error al procesar la solicitud');
-                        });
-                    }
+                            })
+                            .then(response => {
+                                if (!response.ok) {
+                                    return response.json().then(err => { throw err; });
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                if (data.success) {
+                                    showSwalSuccess(data.message);
+                                    this.closest('tr').remove();
+                                    if (document.querySelectorAll('.fila-categoria').length === 0) {
+                                        noResultados.style.display = '';
+                                    }
+                                    setTimeout(() => location.reload(), 1200);
+                                } else {
+                                    showSwalError(data.message || 'Error al eliminar la categoría');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                showSwalError(error.message || 'Error al procesar la solicitud');
+                            });
+                        }
+                    });
                 });
             });
         }
@@ -203,9 +236,7 @@
                 this.classList.add('was-validated');
                 return;
             }
-            
             const formData = new FormData(this);
-            
             fetch("{% url 'gestionar_categorias' %}", {
                 method: 'POST',
                 body: formData,
@@ -214,23 +245,24 @@
                     'X-CSRFToken': '{{ csrf_token }}'
                 }
             })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Error en la respuesta del servidor');
+            .then(async response => {
+                let data;
+                try {
+                    data = await response.json();
+                } catch (err) {
+                    throw new Error('Respuesta inválida del servidor');
                 }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
+                if (response.ok && data.success) {
                     nuevaCategoriaModal.hide();
-                    location.reload();
+                    showSwalSuccess(data.message || 'Categoría guardada con éxito');
+                    setTimeout(() => location.reload(), 1200);
                 } else {
-                    alert(data.error || 'Error al guardar la categoría');
+                    showSwalError(data.message || data.error || 'Error al guardar la categoría');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error al procesar la solicitud: ' + error.message);
+                showSwalError('Error al procesar la solicitud: ' + error.message);
             });
         });
 

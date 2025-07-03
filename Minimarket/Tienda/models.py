@@ -10,10 +10,11 @@ class Minimercado(models.Model):
 
 class Proveedor(models.Model):
     nombre_proveedor = models.CharField(max_length=100)
-    rut = models.CharField(unique=True, max_length=30)
+    rut = models.PositiveIntegerField(unique=True)
+    verify_digit = models.CharField(max_length=1, choices=[(str(i), str(i)) for i in range(10)] + [('K', 'K'), ('k', 'k')])
     direccion = models.CharField(max_length=200)
     telefono = models.PositiveIntegerField()
-    
+
     def __str__(self):
         return f"{self.nombre_proveedor}"
 
@@ -25,7 +26,7 @@ class Categoria(models.Model):
 
 class Producto(models.Model):
     nombre = models.CharField(max_length=100)
-    codigo_barras = models.CharField(max_length=50, unique=True)
+    codigo_barras = models.PositiveIntegerField(default=0)
     stock = models.PositiveIntegerField(default=0)
     precio = models.PositiveIntegerField(default=0)
     costo = models.PositiveIntegerField(default=0)

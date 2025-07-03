@@ -6,6 +6,7 @@ from django.db import transaction
 from django.contrib.auth import authenticate
 from django.utils import timezone
 from ..models import Lote, Proveedor, Producto, LoteProducto, Registro_compra_proveedor
+from datetime import datetime, timedelta
 
 def is_superuser(user):
     return user.is_superuser
@@ -35,40 +36,49 @@ def gestionar_inventario(request):
     if not request.session.get('inventory_access_granted', False):
         messages.warning(request, 'Debes verificar tu contraseña para acceder a la gestión de inventario.')
         return redirect('home')
-
     lotes = Lote.objects.all().order_by('fecha_registro')
     proveedores = Proveedor.objects.all()
     productos = Producto.objects.all()
-
     if request.method == 'POST':
         action = request.POST.get('action')
         lote_id = request.POST.get('lote_id')
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-
         try:
             if action == 'add_lote':
                 with transaction.atomic():
-                    code_lote = request.POST.get('code_lote')
+                    code_lote = request.POST.get('code_lote', '').strip()
+                    if not code_lote:
+                        if is_ajax:
+                            return JsonResponse({'success': False, 'message': 'El código de lote no puede estar vacío o solo contener espacios.'})
+                        raise ValueError('El código de lote no puede estar vacío o solo contener espacios.')
                     if Lote.objects.filter(code_lote=code_lote).exists():
+                        if is_ajax:
+                            return JsonResponse({'success': False, 'message': 'El código de lote ya existe'})
                         raise ValueError('El código de lote ya existe')
-
+                    productos_ids = request.POST.getlist('productos[]')
+                    cantidades = request.POST.getlist('cantidades[]')
+                    fechas_vencimiento = request.POST.getlist('fechas_vencimiento[]')
+                    if not productos_ids:
+                        if is_ajax:
+                            return JsonResponse({'success': False, 'message': 'Debe agregar al menos un producto al lote'})
+                        raise ValueError('Debe agregar al menos un producto al lote')
+                    # Validar fechas de vencimiento antes de crear el lote
+                    for i, producto_id in enumerate(productos_ids):
+                        fecha_vencimiento = fechas_vencimiento[i] if i < len(fechas_vencimiento) and fechas_vencimiento[i] else None
+                        if fecha_vencimiento:
+                            fecha_v = datetime.strptime(fecha_vencimiento, '%Y-%m-%d').date()
+                            if fecha_v < (timezone.now().date() - timedelta(days=10)):
+                                if is_ajax:
+                                    return JsonResponse({'success': False, 'message': 'La fecha de vencimiento no puede ser mayor a 10 días en el pasado.'})
+                                raise ValueError('La fecha de vencimiento no puede ser mayor a 10 días en el pasado.')
                     lote = Lote.objects.create(
                         code_lote=code_lote,
                         proveedor_id=request.POST.get('proveedor')
                     )
-
-                    productos_ids = request.POST.getlist('productos[]')
-                    cantidades = request.POST.getlist('cantidades[]')
-                    fechas_vencimiento = request.POST.getlist('fechas_vencimiento[]')
-
-                    if not productos_ids:
-                        raise ValueError('Debe agregar al menos un producto al lote')
-
                     for i, producto_id in enumerate(productos_ids):
                         producto = Producto.objects.get(id=producto_id)
                         cantidad = int(cantidades[i]) if cantidades[i] else 1
                         fecha_vencimiento = fechas_vencimiento[i] if i < len(fechas_vencimiento) and fechas_vencimiento[i] else None
-
                         LoteProducto.objects.create(
                             lote=lote,
                             producto=producto,
@@ -76,10 +86,8 @@ def gestionar_inventario(request):
                             cantidad_disponible=cantidad,
                             fecha_vencimiento=fecha_vencimiento
                         )
-
                         producto.stock += cantidad
                         producto.save()
-
                         Registro_compra_proveedor.objects.create(
                             proveedor=lote.proveedor,
                             productos=producto,
@@ -87,9 +95,7 @@ def gestionar_inventario(request):
                             precio_unitario=producto.costo,
                             valor_total=producto.costo * cantidad
                         )
-
                     msg = f'Lote {lote.code_lote} creado con {len(productos_ids)} producto(s)'
-                    messages.success(request, msg)
                     if is_ajax:
                         return JsonResponse({
                             'success': True,
@@ -101,22 +107,22 @@ def gestionar_inventario(request):
                                 'fecha': lote.fecha_registro.strftime('%d/%m/%Y')
                             }
                         })
-
+                    messages.success(request, msg)
             elif action == 'edit_lote' and lote_id:
                 with transaction.atomic():
                     lote = get_object_or_404(Lote, id=lote_id)
-                    lote.code_lote = request.POST.get('code_lote')
+                    code_lote = request.POST.get('code_lote', '').strip()
+                    if not code_lote:
+                        if is_ajax:
+                            return JsonResponse({'success': False, 'message': 'El código de lote no puede estar vacío o solo contener espacios.'})
+                        raise ValueError('El código de lote no puede estar vacío o solo contener espacios.')
+                    lote.code_lote = code_lote
                     lote.proveedor_id = request.POST.get('proveedor')
                     lote.save()
-
                     msg = f'Lote {lote.code_lote} actualizado correctamente'
-                    messages.success(request, msg)
                     if is_ajax:
-                        return JsonResponse({
-                            'success': True,
-                            'message': msg
-                        })
-
+                        return JsonResponse({'success': True, 'message': msg})
+                    messages.success(request, msg)
             elif action == 'delete_lote' and lote_id:
                 with transaction.atomic():
                     lote = get_object_or_404(Lote, id=lote_id)
@@ -160,7 +166,6 @@ def gestionar_inventario(request):
                     cantidades = request.POST.getlist('cantidades[]')
                     fechas_vencimiento = request.POST.getlist('fechas_vencimiento[]')
                     productos_a_eliminar = request.POST.getlist('productos_eliminar[]')
-
                     if productos_a_eliminar:
                         for prod_id in productos_a_eliminar:
                             try:
@@ -171,15 +176,20 @@ def gestionar_inventario(request):
                                 relacion.delete()
                             except LoteProducto.DoesNotExist:
                                 pass
-
                     if not productos_ids and not productos_a_eliminar:
+                        if is_ajax:
+                            return JsonResponse({'success': False, 'message': 'Debe seleccionar al menos un producto'})
                         raise ValueError('Debe seleccionar al menos un producto')
-
                     for i, producto_id in enumerate(productos_ids):
                         producto = Producto.objects.get(id=producto_id)
                         cantidad = int(cantidades[i]) if cantidades[i] else 1
                         fecha_vencimiento = fechas_vencimiento[i] if i < len(fechas_vencimiento) and fechas_vencimiento[i] else None
-
+                        if fecha_vencimiento:
+                            fecha_v = datetime.strptime(fecha_vencimiento, '%Y-%m-%d').date()
+                            if fecha_v < (timezone.now().date() - timedelta(days=10)):
+                                if is_ajax:
+                                    return JsonResponse({'success': False, 'message': 'La fecha de vencimiento no puede ser mayor a 10 días en el pasado.'})
+                                raise ValueError('La fecha de vencimiento no puede ser mayor a 10 días en el pasado.')
                         relacion, created = LoteProducto.objects.get_or_create(
                             lote=lote,
                             producto=producto,
@@ -189,15 +199,12 @@ def gestionar_inventario(request):
                                 'fecha_vencimiento': fecha_vencimiento
                             }
                         )
-
                         if not created:
                             relacion.cantidad_inicial += cantidad
                             relacion.cantidad_disponible += cantidad
                             relacion.save()
-
                         producto.stock += cantidad
                         producto.save()
-
                         Registro_compra_proveedor.objects.create(
                             proveedor=lote.proveedor,
                             productos=producto,
@@ -205,31 +212,25 @@ def gestionar_inventario(request):
                             precio_unitario=producto.costo,
                             valor_total=producto.costo * cantidad
                         )
-
-                    msg = f'{len(productos_ids)} producto(s) agregados/eliminados del lote {lote.code_lote}'
-                    messages.success(request, msg)
+                    msg = 'Productos asignados correctamente al lote.'
                     if is_ajax:
-                        return JsonResponse({
-                            'success': True,
-                            'message': msg
-                        })
-
+                        return JsonResponse({'success': True, 'message': msg})
+                    messages.success(request, msg)
         except Exception as e:
-            messages.error(request, f'Error: {str(e)}')
+            if is_ajax:
+                return JsonResponse({'success': False, 'message': str(e)})
+            messages.error(request, str(e))
             if is_ajax:
                 return JsonResponse({
                     'success': False,
                     'message': str(e)
                 }, status=400)
-
         if is_ajax:
             return JsonResponse({
                 'success': False,
                 'message': 'Acción no válida'
             }, status=400)
-
     lotes = Lote.objects.all().order_by('fecha_registro')
-
     context = {
         'lotes': lotes,
         'proveedores': proveedores,

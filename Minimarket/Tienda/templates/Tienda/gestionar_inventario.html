@@ -1,10 +1,8 @@
 {% extends 'Tienda/base_layout.html' %}
 {% load static %}
-
 {% block content %}
 <div class="container mt-4">
     <h2 class="mb-4"><i class="fas fa-boxes me-2"></i>Gestión de Inventario</h2>
-
     <!-- Tarjeta de Búsqueda -->
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-header bg-primary text-white">
@@ -31,7 +29,6 @@
             </div>
         </div>
     </div>
-
     <!-- Tarjeta de Listado -->
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
@@ -116,7 +113,6 @@
             </div>
         </div>
     </div>
-
     <div class="d-flex justify-content-between mt-3">
         <div>
             <span class="badge bg-light text-dark">Total: {{ lotes.count }} lote(s)</span>
@@ -131,7 +127,6 @@
         </div>
     </div>
 </div>
-
 <!-- Modal Nuevo Lote -->
 <div class="modal fade" id="nuevoLoteModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -159,9 +154,7 @@
                             </select>
                         </div>
                     </div>
-                    
                     <h5 class="border-bottom pb-2 mb-3">Productos del Lote</h5>
-                    
                     <div id="productos-container">
                         <div class="producto-item card mb-3">
                             <div class="card-body">
@@ -192,7 +185,6 @@
                             </div>
                         </div>
                     </div>
-                    
                     <button type="button" id="btn-add-producto" class="btn btn-outline-primary mt-2">
                         <i class="fas fa-plus me-2"></i>Añadir Producto
                     </button>
@@ -209,7 +201,6 @@
         </div>
     </div>
 </div>
-
 <!-- Modal Asignar Productos -->
 <div class="modal fade" id="asignarProductosModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -224,7 +215,6 @@
                 <input type="hidden" name="lote_id" id="input-lote-id">
                 <div class="modal-body">
                     <h6>Lote: <strong id="lote-code-title"></strong></h6>
-                    
                     <div class="table-responsive mt-3">
                         <table class="table table-sm">
                             <thead class="table-light">
@@ -260,7 +250,6 @@
                             </tbody>
                         </table>
                     </div>
-                    
                     <button type="button" id="btn-add-fila" class="btn btn-outline-primary btn-sm mt-2">
                         <i class="fas fa-plus me-2"></i>Añadir Producto
                     </button>
@@ -277,7 +266,6 @@
         </div>
     </div>
 </div>
-
 <!-- Modal Editar Lote -->
 <div class="modal fade" id="editarLoteModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -316,7 +304,6 @@
         </div>
     </div>
 </div>
-
 <!-- Modal Confirmar Eliminación -->
 <div class="modal fade" id="confirmarEliminarModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -344,12 +331,30 @@
             </div>
         </div>
     </div>
-</div>
 
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+function showSwalSuccess(message) {
+    Swal.fire({
+        icon: 'success',
+        title: 'Éxito',
+        text: message,
+        timer: 1200,
+        showConfirmButton: false
+    });
+}
+function showSwalError(message) {
+    Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: message,
+        timer: 2000,
+        showConfirmButton: false
+    });
+}
 document.addEventListener('DOMContentLoaded', function() {
     // 1. Búsqueda y Filtrado
     const buscarInput = document.getElementById('buscar-lote');
@@ -475,19 +480,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     const modalId = form.closest('.modal').id;
                     const modal = bootstrap.Modal.getInstance(document.getElementById(modalId));
                     if (modal) modal.hide();
-                    
                     // Mostrar mensaje y recargar
                     if (data.message) {
-                        alert(data.message);
+                        showSwalSuccess(data.message);
                     }
-                    window.location.reload();
+                    setTimeout(() => window.location.reload(), 1300);
                 } else {
                     throw new Error(data.message || 'Error desconocido');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert(error.message || 'Error al procesar la solicitud');
+                showSwalError(error.message || 'Error al procesar la solicitud');
             })
             .finally(() => {
                 submitBtn.disabled = false;
@@ -531,13 +535,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-
-// Ordenar lotes del más viejo al más nuevo por defecto
-window.addEventListener('DOMContentLoaded', function() {
-    const filtroSelect = document.getElementById('filtro-lote');
-    if (filtroSelect) {
-        filtroSelect.value = 'antiguos';
-        const event = new Event('change');
-        filtroSelect.dispatchEvent(event);
-    }
-});
