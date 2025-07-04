@@ -1,8 +1,8 @@
 from django.contrib import admin
 from .models import (
     Minimercado, Proveedor, Lote, Producto, LoteProducto,
-    Registro_compra_proveedor, Venta, DetalleVenta, Oferta,
-    Oferta_vencimiento, Oferta_producto
+    Registro_compra_proveedor, Venta, DetalleVenta,
+    SeccionBodega, SeccionLote, Reporte, ReporteProducto
 )
 
 # Register your models here.
@@ -45,24 +45,6 @@ class RegistroCompraProveedorAdmin(admin.ModelAdmin):
     list_display = ('proveedor', 'productos', 'fecha_compra', 'cantidad', 'precio_unitario', 'valor_total')
     list_per_page = 15
 
-class OfertaAdmin(admin.ModelAdmin):
-    search_fields = ['tipo_oferta']
-    list_filter = ['fecha_inicio', 'fecha_fin']
-    list_display = ('tipo_oferta', 'fecha_inicio', 'fecha_fin', 'descuento_porcetaje')
-    list_per_page = 15
-
-class OfertaVencimientoAdmin(admin.ModelAdmin):
-    search_fields = ['producto_id__nombre', 'new_code_bar']
-    list_filter = ['oferta_id']
-    list_display = ('producto_id', 'oferta_id', 'cantidad', 'new_code_bar')
-    list_per_page = 15
-
-class OfertaProductoAdmin(admin.ModelAdmin):
-    search_fields = ['producto_id__nombre']
-    list_filter = ['oferta_id']
-    list_display = ('producto_id', 'oferta_id')
-    list_per_page = 15
-
 class DetalleVentaInline(admin.TabularInline):
     model = DetalleVenta
     extra = 1
@@ -88,6 +70,63 @@ admin.site.register(LoteProducto, LoteProductoAdmin)
 admin.site.register(Registro_compra_proveedor, RegistroCompraProveedorAdmin)
 admin.site.register(Venta, VentaAdmin)
 admin.site.register(DetalleVenta, DetalleVentaAdmin)
-admin.site.register(Oferta, OfertaAdmin)
-admin.site.register(Oferta_vencimiento, OfertaVencimientoAdmin)
-admin.site.register(Oferta_producto, OfertaProductoAdmin)
+
+class SeccionLoteInline(admin.TabularInline):
+    model = SeccionLote
+    extra = 1
+    fields = ('lote', 'observaciones')
+
+class SeccionBodegaAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'tipo_forma', 'posicion_x', 'posicion_y', 'ancho', 'alto', 'activa', 'fecha_creacion')
+    list_filter = ('tipo_forma', 'activa', 'fecha_creacion')
+    search_fields = ('nombre', 'descripcion')
+    inlines = [SeccionLoteInline]
+    fieldsets = (
+        ('Información Básica', {
+            'fields': ('nombre', 'descripcion', 'tipo_forma', 'color', 'activa')
+        }),
+        ('Posición y Dimensiones', {
+            'fields': ('posicion_x', 'posicion_y', 'ancho', 'alto')
+        }),
+    )
+    list_per_page = 15
+
+class SeccionLoteAdmin(admin.ModelAdmin):
+    list_display = ('seccion', 'lote', 'fecha_asignacion')
+    list_filter = ('seccion', 'fecha_asignacion')
+    search_fields = ('seccion__nombre', 'lote__code_lote')
+    list_per_page = 15
+
+admin.site.register(SeccionBodega, SeccionBodegaAdmin)
+admin.site.register(SeccionLote, SeccionLoteAdmin)
+
+class ReporteProductoInline(admin.TabularInline):
+    model = ReporteProducto
+    extra = 1
+    fields = ('producto', 'cantidad')
+
+class ReporteAdmin(admin.ModelAdmin):
+    list_display = ('nombre_reporte', 'tipo', 'usuario_creador', 'fecha_creacion', 'activo')
+    list_filter = ('tipo', 'activo', 'fecha_creacion', 'usuario_creador')
+    search_fields = ('nombre_reporte', 'descripcion')
+    inlines = [ReporteProductoInline]
+    fieldsets = (
+        ('Información Básica', {
+            'fields': ('nombre_reporte', 'descripcion', 'tipo', 'activo')
+        }),
+        ('Información del Sistema', {
+            'fields': ('usuario_creador', 'fecha_creacion'),
+            'classes': ('collapse',)
+        }),
+    )
+    readonly_fields = ('fecha_creacion',)
+    list_per_page = 15
+
+class ReporteProductoAdmin(admin.ModelAdmin):
+    list_display = ('reporte', 'producto', 'cantidad')
+    list_filter = ('reporte__tipo', 'producto')
+    search_fields = ('reporte__nombre_reporte', 'producto__nombre_producto')
+    list_per_page = 15
+
+admin.site.register(Reporte, ReporteAdmin)
+admin.site.register(ReporteProducto, ReporteProductoAdmin)

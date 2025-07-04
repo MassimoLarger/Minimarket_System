@@ -1,0 +1,567 @@
+{% extends 'Tienda/base_layout.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-bell me-2"></i>Gestión de Alertas</h2>
+        <div>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#crearAlertaModal">
+                <i class="fas fa-plus me-2"></i>Nueva Alerta
+            </button>
+            <button class="btn btn-info" id="verificarAlertas">
+                <i class="fas fa-sync me-2"></i>Verificar Alertas
+            </button>
+        </div>
+    </div>
+
+    <!-- Alertas Activas -->
+    {% if alertas_activas %}
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <h5 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>¡Alertas Activas!</h5>
+        {% for alerta in alertas_activas %}
+        <div class="mb-3 p-3 border rounded bg-light">
+            <h6 class="fw-bold text-primary">{{ alerta.tipo }}</h6>
+            <div class="alert-message" style="white-space: pre-line; font-family: monospace; font-size: 0.9em;">{{ alerta.mensaje }}</div>
+            {% if alerta.productos_count %}
+                <small class="text-muted"><i class="fas fa-info-circle me-1"></i>Total de productos afectados: {{ alerta.productos_count }}</small>
+            {% endif %}
+            {% if alerta.lotes_count %}
+                <small class="text-muted"><i class="fas fa-info-circle me-1"></i>Total de lotes afectados: {{ alerta.lotes_count }}</small>
+            {% endif %}
+            {% if alerta.ofertas_count %}
+                <small class="text-muted"><i class="fas fa-info-circle me-1"></i>Total de ofertas afectadas: {{ alerta.ofertas_count }}</small>
+            {% endif %}
+        </div>
+        {% endfor %}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <!-- Tabla de Alertas -->
+    <div class="card">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i>Lista de Alertas</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Tipo</th>
+                            <th>Estado</th>
+                            <th>Configuración</th>
+                            <th>Fecha Creación</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for alerta in alertas %}
+                        <tr>
+                            <td>
+                                <strong>{{ alerta.nombre }}</strong>
+                                <br><small class="text-muted">{{ alerta.mensaje|truncatechars:50 }}</small>
+                            </td>
+                            <td>
+                                <span class="badge 
+                                    {% if alerta.tipo == 'stock_bajo' %}bg-danger
+                                    {% elif alerta.tipo == 'proximo_vencer' %}bg-warning
+                                    {% elif alerta.tipo == 'oferta_terminando' %}bg-info
+                                    {% endif %}">
+                                    {{ alerta.get_tipo_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge 
+                                    {% if alerta.estado == 'activa' %}bg-success
+                                    {% elif alerta.estado == 'mostrada' %}bg-secondary
+                                    {% elif alerta.estado == 'desactivada' %}bg-dark
+                                    {% endif %}">
+                                    {{ alerta.get_estado_display }}
+                                </span>
+                            </td>
+
+                            <td>
+                                {% if alerta.umbral_stock %}
+                                    <small>Stock: {{ alerta.umbral_stock }}</small><br>
+                                {% endif %}
+                                {% if alerta.dias_anticipacion %}
+                                    <small>Días: {{ alerta.dias_anticipacion }}</small>
+                                {% endif %}
+                            </td>
+                            <td>{{ alerta.fecha_creacion|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    {% if alerta.activa %}
+                                        <button class="btn btn-sm btn-warning desactivar-alerta" data-id="{{ alerta.id }}" title="Desactivar">
+                                            <i class="fas fa-pause"></i>
+                                        </button>
+                                    {% else %}
+                                        <button class="btn btn-sm btn-success activar-alerta" data-id="{{ alerta.id }}" title="Activar">
+                                            <i class="fas fa-play"></i>
+                                        </button>
+                                    {% endif %}
+                                    <button class="btn btn-sm btn-info editar-alerta" data-id="{{ alerta.id }}" title="Editar alerta">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger eliminar-alerta" data-id="{{ alerta.id }}" title="Eliminar">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">
+                                <i class="fas fa-bell-slash fa-2x mb-2"></i><br>
+                                No hay alertas configuradas
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Crear Alerta -->
+<div class="modal fade" id="crearAlertaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-plus me-2"></i>Nueva Alerta</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formCrearAlerta" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="crear_alerta">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="nombre" class="form-label">Nombre de la Alerta *</label>
+                                <input type="text" class="form-control" id="nombre" name="nombre" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="tipo" class="form-label">Tipo de Alerta *</label>
+                                <select class="form-select" id="tipo" name="tipo" required>
+                                    <option value="">Seleccionar tipo...</option>
+                                    <option value="stock_bajo">Producto Bajo en Stock</option>
+                                    <option value="proximo_vencer">Producto Próximo a Vencer</option>
+                                    <option value="oferta_terminando">Oferta Próxima a Terminar</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="mensaje" class="form-label">Mensaje de la Alerta *</label>
+                        <textarea class="form-control" id="mensaje" name="mensaje" rows="3" required placeholder="Mensaje que se mostrará cuando se active la alerta"></textarea>
+                    </div>
+                    
+                    <!-- Campos específicos por tipo -->
+                    <div id="campos-stock" class="tipo-campos" style="display: none;">
+                        <div class="mb-3">
+                            <label for="umbral_stock" class="form-label">Umbral de Stock</label>
+                            <input type="number" class="form-control" id="umbral_stock" name="umbral_stock" min="0" value="10" placeholder="Cantidad mínima de stock para activar la alerta">
+                            <div class="form-text">La alerta se activará cuando cualquier producto tenga stock igual o menor a este valor.</div>
+                        </div>
+                    </div>
+                    
+                    <div id="campos-vencimiento" class="tipo-campos" style="display: none;">
+                        <div class="mb-3">
+                            <label for="dias_anticipacion_venc" class="form-label">Días de Anticipación</label>
+                            <input type="number" class="form-control" id="dias_anticipacion_venc" name="dias_anticipacion" min="1" value="7" placeholder="Días antes del vencimiento">
+                            <div class="form-text">La alerta se activará cuando cualquier producto esté próximo a vencer en este número de días.</div>
+                        </div>
+                    </div>
+                    
+                    <div id="campos-oferta" class="tipo-campos" style="display: none;">
+                        <div class="mb-3">
+                            <label for="dias_anticipacion_oferta" class="form-label">Días de Anticipación</label>
+                            <input type="number" class="form-control" id="dias_anticipacion_oferta" name="dias_anticipacion" min="1" value="3" placeholder="Días antes del fin">
+                            <div class="form-text">La alerta se activará cuando cualquier oferta esté próxima a terminar en este número de días.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Crear Alerta
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Editar Alerta -->
+<div class="modal fade" id="editarAlertaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Editar Alerta</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formEditarAlerta" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="editar_alerta">
+                <input type="hidden" id="edit_alerta_id" name="alerta_id">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit_nombre" class="form-label">Nombre de la Alerta *</label>
+                                <input type="text" class="form-control" id="edit_nombre" name="nombre" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit_tipo" class="form-label">Tipo de Alerta *</label>
+                                <select class="form-select" id="edit_tipo" name="tipo" required>
+                                    <option value="">Seleccionar tipo...</option>
+                                    <option value="stock_bajo">Producto Bajo en Stock</option>
+                                    <option value="proximo_vencer">Producto Próximo a Vencer</option>
+                                    <option value="oferta_terminando">Oferta Próxima a Terminar</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit_mensaje" class="form-label">Mensaje de la Alerta *</label>
+                        <textarea class="form-control" id="edit_mensaje" name="mensaje" rows="3" required placeholder="Mensaje que se mostrará cuando se active la alerta"></textarea>
+                    </div>
+                    
+                    <!-- Campos específicos por tipo -->
+                    <div id="edit-campos-stock" class="edit-tipo-campos" style="display: none;">
+                        <div class="mb-3">
+                            <label for="edit_umbral_stock" class="form-label">Umbral de Stock</label>
+                            <input type="number" class="form-control" id="edit_umbral_stock" name="umbral_stock" min="0" placeholder="Cantidad mínima de stock para activar la alerta">
+                            <div class="form-text">La alerta se activará cuando cualquier producto tenga stock igual o menor a este valor.</div>
+                        </div>
+                    </div>
+                    
+                    <div id="edit-campos-vencimiento" class="edit-tipo-campos" style="display: none;">
+                        <div class="mb-3">
+                            <label for="edit_dias_anticipacion_venc" class="form-label">Días de Anticipación</label>
+                            <input type="number" class="form-control" id="edit_dias_anticipacion_venc" name="dias_anticipacion" min="1" placeholder="Días antes del vencimiento">
+                            <div class="form-text">La alerta se activará cuando cualquier producto esté próximo a vencer en este número de días.</div>
+                        </div>
+                    </div>
+                    
+                    <div id="edit-campos-oferta" class="edit-tipo-campos" style="display: none;">
+                        <div class="mb-3">
+                            <label for="edit_dias_anticipacion_oferta" class="form-label">Días de Anticipación</label>
+                            <input type="number" class="form-control" id="edit_dias_anticipacion_oferta" name="dias_anticipacion" min="1" placeholder="Días antes del fin">
+                            <div class="form-text">La alerta se activará cuando cualquier oferta esté próxima a terminar en este número de días.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-info">
+                        <i class="fas fa-save me-2"></i>Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Funciones de utilidad para SweetAlert
+function showSwalSuccess(message) {
+    Swal.fire({
+        icon: 'success',
+        title: 'Éxito',
+        text: message,
+        timer: 2000,
+        showConfirmButton: false
+    });
+}
+
+function showSwalError(message) {
+    Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        html: `<span style="color: #e74c3c;">${message}</span>`,
+        confirmButtonColor: '#e74c3c'
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Manejar cambio de tipo de alerta
+    const tipoSelect = document.getElementById('tipo');
+    const camposTipo = document.querySelectorAll('.tipo-campos');
+    
+    tipoSelect.addEventListener('change', function() {
+        // Ocultar todos los campos específicos
+        camposTipo.forEach(campo => {
+            campo.style.display = 'none';
+        });
+        
+        // Mostrar campos específicos según el tipo
+        if (this.value === 'stock_bajo') {
+            document.getElementById('campos-stock').style.display = 'block';
+        } else if (this.value === 'proximo_vencer') {
+            document.getElementById('campos-vencimiento').style.display = 'block';
+        } else if (this.value === 'oferta_terminando') {
+            document.getElementById('campos-oferta').style.display = 'block';
+        }
+    });
+    
+    // Manejar envío del formulario
+    document.getElementById('formCrearAlerta').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        
+        fetch('', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showSwalSuccess(data.message);
+                setTimeout(() => location.reload(), 2000);
+            } else {
+                showSwalError(data.message);
+            }
+        })
+        .catch(error => {
+            showSwalError('Error de conexión');
+        });
+    });
+    
+    // Manejar botones de acción
+    function manejarAccion(selector, action, mensaje) {
+        document.querySelectorAll(selector).forEach(button => {
+            button.addEventListener('click', function() {
+                const alertaId = this.dataset.id;
+                
+                Swal.fire({
+                    title: '¿Estás seguro?',
+                    text: mensaje,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, continuar',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        const formData = new FormData();
+                        formData.append('action', action);
+                        formData.append('alerta_id', alertaId);
+                        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+                        
+                        fetch('', {
+                            method: 'POST',
+                            body: formData,
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                showSwalSuccess(data.message);
+                                setTimeout(() => location.reload(), 2000);
+                            } else {
+                                showSwalError(data.message);
+                            }
+                        });
+                    }
+                });
+            });
+        });
+    }
+    
+    // Configurar botones de acción
+    manejarAccion('.activar-alerta', 'activar_alerta', '¿Activar esta alerta?');
+    manejarAccion('.desactivar-alerta', 'desactivar_alerta', '¿Desactivar esta alerta?');
+    manejarAccion('.eliminar-alerta', 'eliminar_alerta', '¿Eliminar esta alerta permanentemente?');
+    manejarAccion('.marcar-mostrada', 'marcar_mostrada', '¿Marcar esta alerta como mostrada?');
+    
+    // Manejar botones de editar alerta
+     document.querySelectorAll('.editar-alerta').forEach(button => {
+         button.addEventListener('click', function() {
+             const alertaId = this.getAttribute('data-id');
+             
+             // Buscar los datos de la alerta en la tabla
+              const row = this.closest('tr');
+              const nombreElement = row.cells[0].querySelector('strong');
+              const nombre = nombreElement ? nombreElement.textContent.trim() : '';
+              const tipoElement = row.cells[1].querySelector('.badge');
+              const mensajeElement = row.cells[0].querySelector('small.text-muted');
+              const mensaje = mensajeElement ? mensajeElement.textContent.trim() : '';
+              const parametrosCell = row.cells[4]; // Columna de parámetros
+              
+              // Llenar el modal con los datos actuales
+              document.getElementById('edit_alerta_id').value = alertaId;
+              document.getElementById('edit_nombre').value = nombre;
+              document.getElementById('edit_mensaje').value = mensaje;
+              
+              // Determinar el tipo y seleccionarlo
+              const tipoSelect = document.getElementById('edit_tipo');
+              const tipoText = tipoElement.textContent.trim();
+              let tipoSeleccionado = '';
+              if (tipoText.includes('Stock')) {
+                  tipoSelect.value = 'stock_bajo';
+                  tipoSeleccionado = 'stock_bajo';
+              } else if (tipoText.includes('Vencer')) {
+                  tipoSelect.value = 'proximo_vencer';
+                  tipoSeleccionado = 'proximo_vencer';
+              } else if (tipoText.includes('Oferta')) {
+                  tipoSelect.value = 'oferta_terminando';
+                  tipoSeleccionado = 'oferta_terminando';
+              }
+              
+              // Mostrar campos específicos del tipo sin limpiar
+               document.querySelectorAll('.edit-tipo-campos').forEach(campo => {
+                   campo.style.display = 'none';
+               });
+               
+               if (tipoSeleccionado === 'stock_bajo') {
+                   document.getElementById('edit-campos-stock').style.display = 'block';
+               } else if (tipoSeleccionado === 'proximo_vencer') {
+                   document.getElementById('edit-campos-vencimiento').style.display = 'block';
+               } else if (tipoSeleccionado === 'oferta_terminando') {
+                   document.getElementById('edit-campos-oferta').style.display = 'block';
+               }
+               
+               // Llenar valores específicos según el tipo
+               if (tipoSeleccionado === 'stock_bajo') {
+                   const stockMatch = parametrosCell.textContent.match(/Stock: (\d+)/);
+                   if (stockMatch) {
+                       document.getElementById('edit_umbral_stock').value = stockMatch[1];
+                   }
+               } else if (tipoSeleccionado === 'proximo_vencer' || tipoSeleccionado === 'oferta_terminando') {
+                   const diasMatch = parametrosCell.textContent.match(/Días: (\d+)/);
+                   if (diasMatch) {
+                       if (tipoSeleccionado === 'proximo_vencer') {
+                           document.getElementById('edit_dias_anticipacion_venc').value = diasMatch[1];
+                       } else {
+                           document.getElementById('edit_dias_anticipacion_oferta').value = diasMatch[1];
+                       }
+                   }
+               }
+             
+             // Mostrar el modal
+             new bootstrap.Modal(document.getElementById('editarAlertaModal')).show();
+         });
+     });
+    
+    // Función para mostrar campos específicos en el modal de editar
+     function mostrarCamposEditarTipo(tipo) {
+         // Ocultar todos los campos específicos y limpiar valores
+         document.querySelectorAll('.edit-tipo-campos').forEach(campo => {
+             campo.style.display = 'none';
+         });
+         
+         // Limpiar todos los campos específicos
+         document.getElementById('edit_umbral_stock').value = '';
+         document.getElementById('edit_dias_anticipacion_venc').value = '';
+         document.getElementById('edit_dias_anticipacion_oferta').value = '';
+         
+         // Mostrar el campo específico del tipo seleccionado
+         if (tipo === 'stock_bajo') {
+             document.getElementById('edit-campos-stock').style.display = 'block';
+         } else if (tipo === 'proximo_vencer') {
+             document.getElementById('edit-campos-vencimiento').style.display = 'block';
+         } else if (tipo === 'oferta_terminando') {
+             document.getElementById('edit-campos-oferta').style.display = 'block';
+         }
+     }
+    
+    // Manejar cambio de tipo en el modal de editar
+    document.getElementById('edit_tipo').addEventListener('change', function() {
+        mostrarCamposEditarTipo(this.value);
+    });
+    
+    // Manejar envío del formulario de editar
+    document.getElementById('formEditarAlerta').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        
+        fetch('', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showSwalSuccess(data.message);
+                setTimeout(() => {
+                    bootstrap.Modal.getInstance(document.getElementById('editarAlertaModal')).hide();
+                    location.reload();
+                }, 2000);
+            } else {
+                showSwalError(data.message);
+            }
+        })
+        .catch(error => {
+            showSwalError('Error de conexión');
+        });
+    });
+    
+    // Verificar alertas
+    document.getElementById('verificarAlertas').addEventListener('click', function() {
+        const formData = new FormData();
+        formData.append('action', 'verificar_alertas');
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        
+        fetch('', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (data.alertas_activadas.length > 0) {
+                    let alertasHtml = '<ul>';
+                    data.alertas_activadas.forEach(alerta => {
+                        alertasHtml += `<li><strong>${alerta.tipo}:</strong> ${alerta.mensaje}</li>`;
+                    });
+                    alertasHtml += '</ul>';
+                    
+                    Swal.fire({
+                        icon: 'warning',
+                        title: '¡Alertas Activas!',
+                        html: alertasHtml,
+                        confirmButtonText: 'Entendido'
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Sin Alertas',
+                        text: 'No hay alertas activas en este momento',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                }
+            }
+        });
+    });
+});
+</script>
+
+<!-- Incluir SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{% endblock %}

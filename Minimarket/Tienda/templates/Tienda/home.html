@@ -44,8 +44,8 @@
                                             </a>
                                         </div>
                                         <div class="col-6">
-                                            <a href="{% url 'ofertas' %}" class="btn btn-info w-100">
-                                                <i class="fas fa-tags me-2"></i> Ofertas
+                                            <a href="{% url 'gestionar_ofertas' %}" class="btn btn-info w-100">
+                                                <i class="fas fa-percent me-2"></i> Ofertas
                                             </a>
                                         </div>
                                         <div class="col-6">
@@ -70,8 +70,14 @@
                                         <a href="#" class="btn btn-outline-secondary text-start w-100 mb-2" data-bs-toggle="modal" data-bs-target="#providersAccessModal">
                                             <i class="fas fa-truck me-2"></i>Gestionar Proveedores
                                         </a>
-                                        <a href="#" class="btn btn-outline-danger text-start w-100 mb-2">
-                                            <i class="fas fa-exclamation-triangle me-2"></i> Productos Bajos en Stock
+                                        <a href="#" class="btn btn-outline-danger text-start w-100 mb-2" data-bs-toggle="modal" data-bs-target="#alertsAccessModal">
+                                            <i class="fas fa-bell me-2"></i> Gestionar Alertas
+                                        </a>
+                                        <a href="#" class="btn btn-outline-success text-start w-100 mb-2" data-bs-toggle="modal" data-bs-target="#warehouseAccessModal">
+                                            <i class="fas fa-warehouse me-2"></i>Gestionar Bodega
+                                        </a>
+                                        <a href="#" class="btn btn-outline-warning text-start w-100 mb-2" data-bs-toggle="modal" data-bs-target="#reportsAccessModal">
+                                            <i class="fas fa-chart-line me-2"></i>Reportes
                                         </a>
                                     </div>
                                 </div>
@@ -173,6 +179,99 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="submit" form="providersAccessForm" class="btn btn-secondary">
+                    <i class="fas fa-lock-open me-1"></i> Acceder
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Acceso a Alertas -->
+<div class="modal fade" id="alertsAccessModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-bell me-2"></i>Acceso a Gestión de Alertas</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="alertsAccessForm" method="post" action="{% url 'verify_password_alerts' %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="alertsPassword" class="form-label">Contraseña:</label>
+                        <input type="password" class="form-control" id="alertsPassword" name="password" required>
+                        <input type="hidden" name="username" value="{{ user.username }}">
+                    </div>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Estás a punto de acceder a la gestión de alertas.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="alertsAccessForm" class="btn btn-danger">
+                    <i class="fas fa-lock-open me-1"></i> Acceder
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Acceso a Bodega -->
+<div class="modal fade" id="warehouseAccessModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-warehouse me-2"></i>Acceso a Gestión de Bodega</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="warehouseAccessForm" method="post" action="{% url 'verify_password_warehouse' %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="warehousePassword" class="form-label">Contraseña:</label>
+                        <input type="password" class="form-control" id="warehousePassword" name="password" required>
+                        <input type="hidden" name="username" value="{{ user.username }}">
+                    </div>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Estás a punto de acceder a la gestión de bodega.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="warehouseAccessForm" class="btn btn-success">
+                    <i class="fas fa-lock-open me-1"></i> Acceder
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Acceso a Reportes -->
+<div class="modal fade" id="reportsAccessModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-white">
+                <h5 class="modal-title"><i class="fas fa-chart-line me-2"></i>Acceso a Gestión de Reportes</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="reportsAccessForm" method="post" action="{% url 'verify_password_reports' %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="reportsPassword" class="form-label">Contraseña:</label>
+                        <input type="password" class="form-control" id="reportsPassword" name="password" required>
+                        <input type="hidden" name="username" value="{{ user.username }}">
+                    </div>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Estás a punto de acceder a la gestión de reportes.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="reportsAccessForm" class="btn btn-warning">
                     <i class="fas fa-lock-open me-1"></i> Acceder
                 </button>
             </div>

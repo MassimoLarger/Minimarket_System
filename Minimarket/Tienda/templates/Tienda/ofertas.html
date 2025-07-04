@@ -1,43 +1,769 @@
 {% extends 'Tienda/base_layout.html' %}
+{% load static %}
+
+{% block title %}Gestión de Ofertas - Minimarket{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
-    <div class="row">
-        <div class="col-lg-12 mb-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-warning text-dark">
-                    <h4 class="mb-0"><i class="fas fa-tags me-2"></i>Ofertas Actuales</h4>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Producto</th>
-                                    <th>Precio Original</th>
-                                    <th>Precio Oferta</th>
-                                    <th>Válido Hasta</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for oferta in ofertas %}
-                                <tr>
-                                    <td>{{ oferta.producto.nombre }}</td>
-                                    <td>${{ oferta.producto.precio }}</td>
-                                    <td class="text-success fw-bold">${{ oferta.precio_oferta }}</td>
-                                    <td>{{ oferta.fecha_fin|date:"d/m/Y" }}</td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="4" class="text-center">No hay ofertas activas en este momento.</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+    <h2 class="mb-4"><i class="fas fa-percent me-2"></i>Gestión de Ofertas</h2>
+    
+    <!-- Tarjeta de Búsqueda -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-search me-2"></i>Buscar Ofertas</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="input-group mb-3">
+                        <input type="text" id="searchOferta" class="form-control" placeholder="Buscar por nombre, descuento...">
+                        <button class="btn btn-outline-secondary" type="button" id="btn-buscar-oferta">
+                            <i class="fas fa-search"></i> Buscar
+                        </button>
                     </div>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="filterTipo">
+                        <option value="">Todos los tipos</option>
+                        <option value="producto">Ofertas de Producto</option>
+                        <option value="vencimiento">Ofertas por Vencimiento</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="filterEstado">
+                        <option value="">Todos los estados</option>
+                        <option value="activa">Activas</option>
+                        <option value="inactiva">Inactivas</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-outline-secondary" onclick="clearFilters()">
+                        <i class="fas fa-times"></i> Limpiar
+                    </button>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Tarjeta de Ofertas de Producto -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-tag me-2"></i>Ofertas de Producto</h5>
+            <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addOfertaModal" data-tipo="producto">
+                <i class="fas fa-plus me-1"></i> Nueva Oferta de Producto
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover" id="tablaOfertasProducto">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Descuento</th>
+                            <th>Fecha Inicio</th>
+                            <th>Fecha Fin</th>
+                            <th>Productos</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for oferta in ofertas_producto %}
+                        <tr data-id="{{ oferta.id }}" data-tipo="producto" data-estado="{% if oferta.activa %}activa{% else %}inactiva{% endif %}" data-nombre="{{ oferta.nombre|lower }}">
+                            <td>{{ oferta.nombre }}</td>
+                            <td><span class="badge bg-info text-dark">{{ oferta.descuento_porcentaje }}%</span></td>
+                            <td>{{ oferta.fecha_inicio|date:"d/m/Y" }}</td>
+                            <td>{% if oferta.fecha_fin %}{{ oferta.fecha_fin|date:"d/m/Y" }}{% else %}<span class="text-muted">Sin límite</span>{% endif %}</td>
+                            <td>
+                                {% if oferta.productos.exists %}
+                                <div style="max-height: 120px; overflow-y: auto;">
+                                    {% for producto in oferta.productos.all %}
+                                    <div class="mb-1">
+                                        {{ producto.nombre }}
+                                        <span class="badge bg-secondary">{{ producto.precio|floatformat:0 }}$</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                <small class="text-muted">{{ oferta.productos.count }} producto{{ oferta.productos.count|pluralize }}</small>
+                                {% else %}
+                                <span class="text-muted">Sin productos</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if oferta.activa %}
+                                    <span class="badge bg-success">Activa</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactiva</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button class="btn btn-outline-warning editar-oferta" 
+                                            data-id="{{ oferta.id }}" 
+                                            data-tipo="producto" 
+                                            data-nombre="{{ oferta.nombre }}" 
+                                            data-descuento="{{ oferta.descuento_porcentaje }}" 
+                                            data-fecha-inicio="{{ oferta.fecha_inicio|date:'Y-m-d' }}" 
+                                            data-fecha-fin="{% if oferta.fecha_fin %}{{ oferta.fecha_fin|date:'Y-m-d' }}{% endif %}" 
+                                            data-activa="{{ oferta.activa|yesno:'true,false' }}">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger eliminar-oferta" 
+                                            data-id="{{ oferta.id }}" 
+                                            data-tipo="producto" 
+                                            data-nombre="{{ oferta.nombre }}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr id="no-ofertas-producto">
+                            <td colspan="7" class="text-center py-4">No hay ofertas de producto registradas</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tarjeta de Ofertas por Vencimiento -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Ofertas por Vencimiento</h5>
+            <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addOfertaModal" data-tipo="vencimiento">
+                <i class="fas fa-plus me-1"></i> Nueva Oferta por Vencimiento
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover" id="tablaOfertasVencimiento">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Descuento</th>
+                            <th>Fecha Inicio</th>
+                            <th>Fecha Fin</th>
+                            <th>Días antes vencimiento</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for oferta in ofertas_vencimiento %}
+                        <tr data-id="{{ oferta.id }}" data-tipo="vencimiento" data-estado="{% if oferta.activa %}activa{% else %}inactiva{% endif %}" data-nombre="{{ oferta.nombre|lower }}">
+                            <td>{{ oferta.nombre }}</td>
+                            <td><span class="badge bg-warning text-dark">{{ oferta.descuento_porcentaje }}%</span></td>
+                            <td>{{ oferta.fecha_inicio|date:"d/m/Y" }}</td>
+                            <td>{% if oferta.fecha_fin %}{{ oferta.fecha_fin|date:"d/m/Y" }}{% else %}<span class="text-muted">Sin límite</span>{% endif %}</td>
+                            <td><span class="badge bg-info">{{ oferta.dias_antes_vencimiento }} día{{ oferta.dias_antes_vencimiento|pluralize }}</span></td>
+                            <td>
+                                {% if oferta.activa %}
+                                    <span class="badge bg-success">Activa</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactiva</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button class="btn btn-outline-warning editar-oferta" 
+                                            data-id="{{ oferta.id }}" 
+                                            data-tipo="vencimiento" 
+                                            data-nombre="{{ oferta.nombre }}" 
+                                            data-descuento="{{ oferta.descuento_porcentaje }}" 
+                                            data-fecha-inicio="{{ oferta.fecha_inicio|date:'Y-m-d' }}" 
+                                            data-fecha-fin="{% if oferta.fecha_fin %}{{ oferta.fecha_fin|date:'Y-m-d' }}{% endif %}" 
+                                            data-activa="{{ oferta.activa|yesno:'true,false' }}" 
+                                            data-dias-vencimiento="{{ oferta.dias_antes_vencimiento }}">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger eliminar-oferta" 
+                                            data-id="{{ oferta.id }}" 
+                                            data-tipo="vencimiento" 
+                                            data-nombre="{{ oferta.nombre }}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr id="no-ofertas-vencimiento">
+                            <td colspan="7" class="text-center py-4">No hay ofertas por vencimiento registradas</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
+
+    <!-- Modal para agregar/editar oferta -->
+    <div class="modal fade" id="addOfertaModal" tabindex="-1" aria-labelledby="addOfertaModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="addOfertaModalLabel">
+                        <i class="fas fa-plus-circle me-2"></i>Nueva Oferta
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="ofertaForm" method="post">
+                    {% csrf_token %}
+                    <div class="modal-body p-4">
+                        <input type="hidden" id="action" name="action" value="add_oferta">
+                        <input type="hidden" id="oferta_id" name="oferta_id">
+                        
+                        <!-- Información Básica -->
+                        <div class="card border-0 bg-light mb-4">
+                            <div class="card-header bg-transparent border-0">
+                                <h6 class="mb-0 text-primary"><i class="fas fa-info-circle me-2"></i>Información Básica</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="nombre" class="form-label fw-bold">Nombre de la oferta <span class="text-danger">*</span></label>
+                                            <input type="text" class="form-control" id="nombre" name="nombre" placeholder="Ej: Descuento de Verano" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="tipo_oferta" class="form-label fw-bold">Tipo de oferta <span class="text-danger">*</span></label>
+                                            <select class="form-select" id="tipo_oferta" name="tipo_oferta" required>
+                                                <option value="">Seleccionar tipo</option>
+                                                <option value="producto">Oferta de Producto</option>
+                                                <option value="vencimiento">Oferta por Vencimiento</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="descuento_porcentaje" class="form-label fw-bold">Descuento (%) <span class="text-danger">*</span></label>
+                                            <div class="input-group">
+                                                <input type="number" class="form-control" id="descuento_porcentaje" name="descuento_porcentaje" min="1" max="100" placeholder="20" required>
+                                                <span class="input-group-text">%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="fecha_inicio" class="form-label fw-bold">Fecha inicio <span class="text-danger">*</span></label>
+                                            <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="fecha_fin" class="form-label fw-bold">Fecha fin</label>
+                                            <input type="date" class="form-control" id="fecha_fin" name="fecha_fin">
+                                            <div class="form-text">Dejar vacío para oferta sin límite de tiempo</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Campos específicos para oferta de producto -->
+                        <div id="campos_producto" class="card border-0 bg-light mb-4" style="display: none;">
+                            <div class="card-header bg-transparent border-0">
+                                <h6 class="mb-0 text-success"><i class="fas fa-box me-2"></i>Configuración de Productos</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label for="productos" class="form-label fw-bold">Productos Incluidos <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="productos" name="productos[]" multiple size="8">
+                                        {% for producto in productos %}
+                                        <option value="{{ producto.id }}">{{ producto.nombre }} - ${{ producto.precio|floatformat:0 }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Mantén presionado <kbd>Ctrl</kbd> (Windows) o <kbd>Cmd</kbd> (Mac) para seleccionar múltiples productos
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Campos específicos para oferta por vencimiento -->
+                        <div id="campos_vencimiento" class="card border-0 bg-light mb-4" style="display: none;">
+                            <div class="card-header bg-transparent border-0">
+                                <h6 class="mb-0 text-warning"><i class="fas fa-clock me-2"></i>Configuración de Vencimiento</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label for="dias_antes_vencimiento" class="form-label fw-bold">Días antes del vencimiento <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="dias_antes_vencimiento" name="dias_antes_vencimiento" value="3" min="1" placeholder="7">
+                                        <span class="input-group-text">días</span>
+                                    </div>
+                                    <div class="form-text">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        La oferta se aplicará automáticamente a productos que venzan en este período
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Estado de la Oferta -->
+                        <div class="card border-0 bg-light">
+                            <div class="card-header bg-transparent border-0">
+                                <h6 class="mb-0 text-info"><i class="fas fa-toggle-on me-2"></i>Estado</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="activa" name="activa" checked>
+                                    <label class="form-check-label fw-bold" for="activa">
+                                        Oferta activa
+                                    </label>
+                                    <div class="form-text">Las ofertas inactivas no se aplicarán a las ventas</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light border-0">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i>Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>Guardar Oferta
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        // Variables globales
+        let currentEditId = null;
+        let currentEditType = null;
+        
+        // Funciones de utilidad para SweetAlert
+        function showSwalSuccess(message) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Éxito',
+                text: message,
+                timer: 2000,
+                showConfirmButton: false
+            });
+        }
+        
+        function showSwalError(message) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: message
+            });
+        }
+        
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', function() {
+            // Configurar fecha mínima como hoy
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('fecha_inicio').min = today;
+            document.getElementById('fecha_fin').min = today;
+            
+            // Event listeners
+            document.getElementById('tipo_oferta').addEventListener('change', toggleOfertaFields);
+            document.getElementById('searchOferta').addEventListener('input', filterOfertas);
+            document.getElementById('filterTipo').addEventListener('change', filterOfertas);
+            document.getElementById('filterEstado').addEventListener('change', filterOfertas);
+            document.getElementById('ofertaForm').addEventListener('submit', handleOfertaSubmit);
+            
+            // Reset modal on close
+            document.getElementById('addOfertaModal').addEventListener('hidden.bs.modal', resetModal);
+            
+            // Configurar botones
+            configurarBotonesEditar();
+            configurarBotonesEliminar();
+            
+            // Event listener para botones de nueva oferta
+            document.querySelectorAll('[data-bs-target="#addOfertaModal"]').forEach(button => {
+                button.addEventListener('click', function(event) {
+                    const tipoOferta = this.getAttribute('data-tipo');
+                    
+                    // Resetear formulario
+                    document.getElementById('ofertaForm').reset();
+                    document.getElementById('action').value = 'add_oferta';
+                    document.getElementById('oferta_id').value = '';
+                    document.getElementById('tipo_oferta').disabled = false;
+                    document.getElementById('ofertaForm').classList.remove('was-validated');
+                    currentEditId = null;
+                    currentEditType = null;
+                    
+                    // Configurar tipo si se especifica
+                    if (tipoOferta) {
+                        document.getElementById('tipo_oferta').value = tipoOferta;
+                        toggleOfertaFields();
+                        
+                        // Actualizar título del modal
+                        const modalTitle = document.getElementById('addOfertaModalLabel');
+                        if (tipoOferta === 'producto') {
+                            modalTitle.innerHTML = '<i class="fas fa-plus-circle me-2"></i>Nueva Oferta de Producto';
+                        } else if (tipoOferta === 'vencimiento') {
+                            modalTitle.innerHTML = '<i class="fas fa-plus-circle me-2"></i>Nueva Oferta por Vencimiento';
+                        }
+                    } else {
+                        document.getElementById('addOfertaModalLabel').innerHTML = '<i class="fas fa-plus-circle me-2"></i>Nueva Oferta';
+                        toggleOfertaFields();
+                    }
+                });
+            });
+        });
+        
+        // Mostrar/ocultar campos según tipo de oferta
+        function toggleOfertaFields() {
+            const tipo = document.getElementById('tipo_oferta').value;
+            const camposProducto = document.getElementById('campos_producto');
+            const camposVencimiento = document.getElementById('campos_vencimiento');
+            
+            if (tipo === 'producto') {
+                camposProducto.style.display = 'block';
+                camposVencimiento.style.display = 'none';
+                document.getElementById('productos').required = true;
+                document.getElementById('dias_antes_vencimiento').required = false;
+            } else if (tipo === 'vencimiento') {
+                camposProducto.style.display = 'none';
+                camposVencimiento.style.display = 'block';
+                document.getElementById('productos').required = false;
+                document.getElementById('dias_antes_vencimiento').required = true;
+            } else {
+                camposProducto.style.display = 'none';
+                camposVencimiento.style.display = 'none';
+                document.getElementById('productos').required = false;
+                document.getElementById('dias_antes_vencimiento').required = false;
+            }
+        }
+        
+        // Limpiar filtros
+        function clearFilters() {
+            document.getElementById('searchOferta').value = '';
+            document.getElementById('filterTipo').value = '';
+            document.getElementById('filterEstado').value = '';
+            filterOfertas();
+        }
+        
+        // Filtrar ofertas
+        function filterOfertas() {
+            const searchTerm = document.getElementById('searchOferta').value.toLowerCase();
+            const filterTipo = document.getElementById('filterTipo').value;
+            const filterEstado = document.getElementById('filterEstado').value;
+            
+            const rows = document.querySelectorAll('#tablaOfertasProducto tbody tr, #tablaOfertasVencimiento tbody tr');
+            
+            let visibleProducto = 0;
+            let visibleVencimiento = 0;
+            
+            rows.forEach(row => {
+                if (row.cells.length === 1) return; // Skip empty rows
+                
+                const nombre = row.dataset.nombre || row.cells[0].textContent.toLowerCase();
+                const tipo = row.getAttribute('data-tipo');
+                const estado = row.getAttribute('data-estado');
+                
+                const matchesSearch = nombre.includes(searchTerm);
+                const matchesTipo = !filterTipo || tipo === filterTipo;
+                const matchesEstado = !filterEstado || estado === filterEstado;
+                
+                if (matchesSearch && matchesTipo && matchesEstado) {
+                    row.style.display = '';
+                    if (tipo === 'producto') visibleProducto++;
+                    else if (tipo === 'vencimiento') visibleVencimiento++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Mostrar/ocultar mensajes de "no hay ofertas"
+            const noOfertasProducto = document.getElementById('no-ofertas-producto');
+            const noOfertasVencimiento = document.getElementById('no-ofertas-vencimiento');
+            
+            if (noOfertasProducto) {
+                noOfertasProducto.style.display = visibleProducto === 0 ? '' : 'none';
+            }
+            
+            if (noOfertasVencimiento) {
+                noOfertasVencimiento.style.display = visibleVencimiento === 0 ? '' : 'none';
+            }
+        }
+        
+        // Limpiar filtros
+        function clearFilters() {
+            document.getElementById('searchOferta').value = '';
+            document.getElementById('filterTipo').value = '';
+            document.getElementById('filterEstado').value = '';
+            filterOfertas();
+        }
+        
+        // Configurar botones de editar
+        function configurarBotonesEditar() {
+            document.querySelectorAll('.editar-oferta').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const id = this.dataset.id;
+                    const tipo = this.dataset.tipo;
+                    
+                    currentEditId = id;
+                    currentEditType = tipo;
+                    
+                    // Actualizar título del modal
+                    const modalTitle = document.getElementById('addOfertaModalLabel');
+                    if (tipo === 'producto') {
+                        modalTitle.innerHTML = '<i class="fas fa-edit me-2"></i>Editar Oferta de Producto';
+                    } else if (tipo === 'vencimiento') {
+                        modalTitle.innerHTML = '<i class="fas fa-edit me-2"></i>Editar Oferta por Vencimiento';
+                    } else {
+                        modalTitle.innerHTML = '<i class="fas fa-edit me-2"></i>Editar Oferta';
+                    }
+                    
+                    // Load offer data via AJAX
+                    const formData = new FormData();
+                    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+                    formData.append('action', 'get_oferta');
+                    formData.append('oferta_id', id);
+                    formData.append('tipo_oferta', tipo);
+                    
+                    fetch(`{% url 'gestionar_ofertas' %}`, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        // Populate form with offer data
+                        document.getElementById('action').value = 'edit_oferta';
+                        document.getElementById('oferta_id').value = data.id;
+                        document.getElementById('nombre').value = data.nombre;
+                        document.getElementById('tipo_oferta').value = data.tipo;
+                        document.getElementById('descuento_porcentaje').value = data.descuento_porcentaje;
+                        document.getElementById('fecha_inicio').value = data.fecha_inicio;
+                        document.getElementById('fecha_fin').value = data.fecha_fin || '';
+                        document.getElementById('activa').checked = data.activa;
+                        
+                        // Disable tipo selection when editing
+                        document.getElementById('tipo_oferta').disabled = true;
+                        
+                        toggleOfertaFields();
+                        
+                        if (data.tipo === 'producto' && data.productos) {
+                            // Select the products for product offers
+                            const productSelect = document.getElementById('productos');
+                            Array.from(productSelect.options).forEach(option => {
+                                option.selected = data.productos.includes(parseInt(option.value));
+                            });
+                        } else if (data.tipo === 'vencimiento') {
+                            document.getElementById('dias_antes_vencimiento').value = data.dias_antes_vencimiento;
+                        }
+                        
+                        new bootstrap.Modal(document.getElementById('addOfertaModal')).show();
+                    })
+                    .catch(error => {
+                        console.error('Error loading offer data:', error);
+                        showSwalError('Error al cargar los datos de la oferta');
+                    });
+                });
+            });
+        }
+        
+        // Configurar botones de eliminar
+        function configurarBotonesEliminar() {
+            document.querySelectorAll('.eliminar-oferta').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const id = this.dataset.id;
+                    const tipo = this.dataset.tipo;
+                    const nombre = this.dataset.nombre;
+                    
+                    Swal.fire({
+                        title: '¿Estás seguro?',
+                        text: `Se eliminará la oferta "${nombre}". Esta acción no se puede deshacer.`,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#3085d6',
+                        confirmButtonText: 'Sí, eliminar',
+                        cancelButtonText: 'Cancelar',
+                        customClass: {
+                            popup: 'border-0 shadow',
+                            confirmButton: 'btn btn-danger',
+                            cancelButton: 'btn btn-secondary'
+                        },
+                        buttonsStyling: false
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // Store reference to button element before fetch
+                            const buttonElement = this;
+                            
+                            const formData = new FormData();
+                            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+                            formData.append('action', 'delete_oferta');
+                            formData.append('oferta_id', id);
+                            formData.append('tipo_oferta', tipo);
+                            
+                            fetch(`{% url 'gestionar_ofertas' %}`, {
+                                method: 'POST',
+                                body: formData,
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'Accept': 'application/json'
+                                }
+                            })
+                            .then(response => {
+                                if (!response.ok) {
+                                    return response.json().then(err => { throw err; });
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                 if (data.success) {
+                                     showSwalSuccess(data.message);
+                                     const rowToRemove = buttonElement.closest('tr');
+                                     const tableBody = buttonElement.closest('tbody');
+                                     
+                                     if (rowToRemove) {
+                                         rowToRemove.remove();
+                                     }
+                                     
+                                     // Check if there are no more rows and show no results message if needed
+                                     if (tableBody) {
+                                         const remainingRows = tableBody.querySelectorAll('tr:not([id^="no-ofertas"])');
+                                         if (remainingRows.length === 0) {
+                                             const noOfertasId = tipo === 'producto' ? 'no-ofertas-producto' : 'no-ofertas-vencimiento';
+                                             const mensaje = tipo === 'producto' ? 'No hay ofertas de producto registradas' : 'No hay ofertas por vencimiento registradas';
+                                             tableBody.innerHTML = `<tr id="${noOfertasId}"><td colspan="7" class="text-center py-4">${mensaje}</td></tr>`;
+                                         }
+                                     }
+                                 } else {
+                                     showSwalError(data.message || 'Error al eliminar la oferta');
+                                 }
+                             })
+                             .catch(error => {
+                                 console.error('Error:', error);
+                                 showSwalError(error.message || 'Error al procesar la solicitud');
+                             });
+                        }
+                    });
+                });
+            });
+        }
+        
+        // Manejar envío del formulario
+        function handleOfertaSubmit(e) {
+            e.preventDefault();
+            
+            if (!e.target.checkValidity()) {
+                e.stopPropagation();
+                e.target.classList.add('was-validated');
+                return;
+            }
+            
+            const formData = new FormData(e.target);
+            
+            // Validaciones adicionales
+            let tipoOferta = formData.get('tipo_oferta');
+            
+            // Si el campo está deshabilitado (modo edición), obtener el valor directamente del elemento
+            if (!tipoOferta) {
+                const tipoOfertaElement = document.getElementById('tipo_oferta');
+                if (tipoOfertaElement.disabled) {
+                    tipoOferta = tipoOfertaElement.value;
+                    // Agregar el valor al FormData para el envío
+                    formData.set('tipo_oferta', tipoOferta);
+                } else {
+                    showSwalError('Por favor selecciona un tipo de oferta');
+                    tipoOfertaElement.focus();
+                    return;
+                }
+            }
+            
+            if (tipoOferta === 'producto') {
+                const productos = formData.getAll('productos[]');
+                if (productos.length === 0) {
+                    showSwalError('Por favor selecciona al menos un producto');
+                    document.getElementById('productos').focus();
+                    return;
+                }
+            }
+            
+            if (tipoOferta === 'vencimiento') {
+                const diasAntes = formData.get('dias_antes_vencimiento');
+                if (!diasAntes || diasAntes < 1) {
+                    showSwalError('Por favor ingresa un número válido de días antes del vencimiento');
+                    document.getElementById('dias_antes_vencimiento').focus();
+                    return;
+                }
+            }
+            
+            // Validar fechas
+            const fechaInicio = new Date(formData.get('fecha_inicio'));
+            const fechaFin = formData.get('fecha_fin') ? new Date(formData.get('fecha_fin')) : null;
+            
+            if (fechaFin && fechaFin <= fechaInicio) {
+                showSwalError('La fecha de fin debe ser posterior a la fecha de inicio');
+                document.getElementById('fecha_fin').focus();
+                return;
+            }
+            
+            // Mostrar indicador de carga
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Guardando...';
+            submitBtn.disabled = true;
+            
+            fetch(`{% url 'gestionar_ofertas' %}`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(async response => {
+                let data;
+                try {
+                    data = await response.json();
+                } catch (err) {
+                    throw new Error('Respuesta inválida del servidor');
+                }
+                if (response.ok && data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('addOfertaModal')).hide();
+                    showSwalSuccess(data.message || 'Oferta guardada correctamente');
+                    setTimeout(() => location.reload(), 1200);
+                } else {
+                    showSwalError(data.message || data.error || 'Error al guardar la oferta');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showSwalError('Error al procesar la solicitud: ' + error.message);
+            })
+            .finally(() => {
+                // Restaurar botón
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            });
+        }
+        
+        // Reset modal
+        function resetModal() {
+            document.getElementById('ofertaForm').reset();
+            document.getElementById('addOfertaModalLabel').textContent = 'Nueva Oferta';
+            document.getElementById('action').value = 'add_oferta';
+            document.getElementById('oferta_id').value = '';
+            document.getElementById('tipo_oferta').disabled = false;
+            toggleOfertaFields();
+            currentEditId = null;
+            currentEditType = null;
+        }
+    </script>
 {% endblock %}

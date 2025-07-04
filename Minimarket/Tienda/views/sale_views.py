@@ -6,7 +6,62 @@ from django.utils import timezone
 from django.db import transaction
 from datetime import datetime, timedelta
 from django.db.models import Q
-from ..models import Producto, Oferta, Venta, DetalleVenta, LoteProducto, Oferta_vencimiento, Oferta_producto
+from ..models import Producto, Venta, DetalleVenta, LoteProducto, OfertaProducto, OfertaVencimiento
+
+def calcular_precio_con_ofertas(producto):
+    """
+    Calcula el precio final de un producto considerando las ofertas activas.
+    Prioriza ofertas de vencimiento sobre ofertas de producto.
+    """
+    precio_original = producto.precio
+    precio_final = precio_original
+    oferta_aplicada = None
+    
+    # Verificar ofertas de vencimiento (mayor prioridad)
+    ofertas_vencimiento = OfertaVencimiento.objects.filter(
+        activa=True,
+        fecha_inicio__lte=timezone.now().date()
+    ).filter(
+        Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=timezone.now().date())
+    )
+    
+    for oferta_venc in ofertas_vencimiento:
+        # Verificar si el producto tiene lotes próximos a vencer
+        fecha_limite = timezone.now().date() + timedelta(days=oferta_venc.dias_antes_vencimiento)
+        lotes_proximos = LoteProducto.objects.filter(
+            producto=producto,
+            fecha_vencimiento__lte=fecha_limite,
+            cantidad_disponible__gt=0
+        )
+        
+        if lotes_proximos.exists():
+            precio_con_descuento = oferta_venc.precio_con_descuento(precio_original)
+            if precio_con_descuento < precio_final:
+                precio_final = precio_con_descuento
+                oferta_aplicada = f"{oferta_venc.nombre} ({oferta_venc.descuento_porcentaje}% desc.)"
+    
+    # Si no hay ofertas de vencimiento, verificar ofertas de producto
+    if precio_final == precio_original:
+        ofertas_producto = OfertaProducto.objects.filter(
+            activa=True,
+            productos=producto,
+            fecha_inicio__lte=timezone.now().date()
+        ).filter(
+            Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=timezone.now().date())
+        )
+        
+        for oferta_prod in ofertas_producto:
+            precio_con_descuento = oferta_prod.precio_con_descuento(precio_original)
+            if precio_con_descuento < precio_final:
+                precio_final = precio_con_descuento
+                oferta_aplicada = f"{oferta_prod.nombre} ({oferta_prod.descuento_porcentaje}% desc.)"
+    
+    return {
+        'precio_original': precio_original,
+        'precio_final': precio_final,
+        'oferta_aplicada': oferta_aplicada,
+        'tiene_descuento': precio_final < precio_original
+    }
 
 @login_required
 def nueva_venta(request):
@@ -24,12 +79,16 @@ def nueva_venta(request):
             codigo_barras = request.POST.get('codigo_barras', '').strip()
             try:
                 producto = Producto.objects.get(codigo_barras=codigo_barras)
+                precio_info = calcular_precio_con_ofertas(producto)
                 
                 producto_encontrado = {
                     'id': producto.id,
                     'nombre': producto.nombre,
-                    'precio': producto.precio,
-                    'stock': producto.stock
+                    'precio': precio_info['precio_final'],
+                    'precio_original': precio_info['precio_original'],
+                    'stock': producto.stock,
+                    'tiene_descuento': precio_info['tiene_descuento'],
+                    'oferta_aplicada': precio_info['oferta_aplicada']
                 }
             except Producto.DoesNotExist:
                 error_busqueda = "Producto no encontrado"
@@ -40,6 +99,9 @@ def nueva_venta(request):
             
             try:
                 producto = Producto.objects.get(id=producto_id)
+                precio_info = calcular_precio_con_ofertas(producto)
+                precio_final = precio_info['precio_final']
+                
                 if cantidad > producto.stock:
                     error_busqueda = "No hay suficiente stock disponible"
                 else:
@@ -57,8 +119,11 @@ def nueva_venta(request):
                             'id': producto.id,
                             'nombre': producto.nombre,
                             'cantidad': cantidad,
-                            'precio': producto.precio,
-                            'subtotal': producto.precio * cantidad
+                            'precio': precio_final,
+                            'precio_original': precio_info['precio_original'],
+                            'subtotal': precio_final * cantidad,
+                            'tiene_descuento': precio_info['tiene_descuento'],
+                            'oferta_aplicada': precio_info['oferta_aplicada']
                         })
                     
                     request.session['venta_actual'] = venta_actual
@@ -203,12 +268,16 @@ def buscar_producto_api(request):
 
         try:
             producto = Producto.objects.get(codigo_barras=codigo_barras)
+            precio_info = calcular_precio_con_ofertas(producto)
     
             return JsonResponse({
                 'id': producto.id,
                 'nombre': producto.nombre,
-                'precio': producto.precio,
-                'stock': producto.stock
+                'precio': precio_info['precio_final'],
+                'precio_original': precio_info['precio_original'],
+                'stock': producto.stock,
+                'tiene_descuento': precio_info['tiene_descuento'],
+                'oferta_aplicada': precio_info['oferta_aplicada']
             })
         except Producto.DoesNotExist:
             return JsonResponse({'error': 'Producto no encontrado'}, status=404)

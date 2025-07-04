@@ -44,10 +44,26 @@
                                     {% if producto_encontrado %}
                                         <div id="producto-info">
                                             <h4 id="producto-nombre" class="mb-3">{{ producto_encontrado.nombre }}</h4>
+                                            
+                                            {% if producto_encontrado.tiene_descuento %}
+                                                <div class="alert alert-success mb-3">
+                                                    <i class="fas fa-tag me-2"></i><strong>¡Oferta Activa!</strong><br>
+                                                    <small>{{ producto_encontrado.oferta_aplicada }}</small>
+                                                </div>
+                                            {% endif %}
+                                            
                                             <div class="row mb-3">
                                                 <div class="col-6">
                                                     <p class="mb-1">Precio:</p>
-                                                    <h5 id="producto-precio" class="text-primary">${{ producto_encontrado.precio }}</h5>
+                                                    {% if producto_encontrado.tiene_descuento %}
+                                                        <div>
+                                                            <span class="text-muted text-decoration-line-through">${{ producto_encontrado.precio_original }}</span><br>
+                                                            <h5 id="producto-precio" class="text-success mb-0">${{ producto_encontrado.precio }}</h5>
+                                                            <small class="text-success">¡Precio con descuento!</small>
+                                                        </div>
+                                                    {% else %}
+                                                        <h5 id="producto-precio" class="text-primary">${{ producto_encontrado.precio }}</h5>
+                                                    {% endif %}
                                                 </div>
                                                 <div class="col-6">
                                                     <p class="mb-1">Stock:</p>
@@ -97,10 +113,22 @@
                                     <tbody id="detalle-venta">
                                         {% for item in venta_actual %}
                                         <tr>
-                                            <td>{{ item.nombre }}</td>
-                                            <td>${{ item.precio }}</td>
+                                            <td>
+                                                {{ item.nombre }}
+                                                {% if item.tiene_descuento %}
+                                                    <br><small class="text-success"><i class="fas fa-tag me-1"></i>{{ item.oferta_aplicada }}</small>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if item.tiene_descuento %}
+                                                    <span class="text-muted text-decoration-line-through small">${{ item.precio_original }}</span><br>
+                                                    <span class="text-success fw-bold">${{ item.precio }}</span>
+                                                {% else %}
+                                                    ${{ item.precio }}
+                                                {% endif %}
+                                            </td>
                                             <td>{{ item.cantidad }}</td>
-                                            <td>${{ item.subtotal }}</td>
+                                            <td class="{% if item.tiene_descuento %}text-success fw-bold{% endif %}">${{ item.subtotal }}</td>
                                             <td>
                                                 <form method="POST" style="display: inline;">
                                                     {% csrf_token %}
@@ -158,8 +186,18 @@
             <ul class="list-group list-group-flush">
               {% for item in venta_actual %}
               <li class="list-group-item d-flex justify-content-between align-items-center">
-                {{ item.nombre }}
-                <span class="badge bg-primary rounded-pill">{{ item.cantidad }} × ${{ item.precio }}</span>
+                <div>
+                  {{ item.nombre }}
+                  {% if item.tiene_descuento %}
+                    <br><small class="text-success"><i class="fas fa-tag me-1"></i>{{ item.oferta_aplicada }}</small>
+                  {% endif %}
+                </div>
+                <div class="text-end">
+                  {% if item.tiene_descuento %}
+                    <small class="text-muted text-decoration-line-through d-block">${{ item.precio_original }} c/u</small>
+                  {% endif %}
+                  <span class="badge {% if item.tiene_descuento %}bg-success{% else %}bg-primary{% endif %} rounded-pill">{{ item.cantidad }} × ${{ item.precio }}</span>
+                </div>
               </li>
               {% endfor %}
               <li class="list-group-item d-flex justify-content-between align-items-center fw-bold">
@@ -229,10 +267,22 @@
                   <tbody>
                     {% for item in venta_actual %}
                     <tr>
-                      <td>{{ item.nombre }}</td>
+                      <td>
+                        {{ item.nombre }}
+                        {% if item.tiene_descuento %}
+                          <br><small class="text-success"><i class="fas fa-tag me-1"></i>{{ item.oferta_aplicada }}</small>
+                        {% endif %}
+                      </td>
                       <td>{{ item.cantidad }}</td>
-                      <td>${{ item.precio }}</td>
-                      <td>${{ item.subtotal }}</td>
+                      <td>
+                        {% if item.tiene_descuento %}
+                          <span class="text-muted text-decoration-line-through small">${{ item.precio_original }}</span><br>
+                          <span class="text-success fw-bold">${{ item.precio }}</span>
+                        {% else %}
+                          ${{ item.precio }}
+                        {% endif %}
+                      </td>
+                      <td class="{% if item.tiene_descuento %}text-success fw-bold{% endif %}">${{ item.subtotal }}</td>
                     </tr>
                     {% endfor %}
                   </tbody>

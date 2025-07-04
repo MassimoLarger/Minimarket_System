@@ -8,3 +8,7 @@ class TiendaConfig(AppConfig):
     """
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'Tienda'
+    
+    def ready(self):
+        """Importa las signals cuando la aplicación está lista"""
+        import Tienda.signals

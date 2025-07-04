@@ -1,0 +1,1119 @@
+{% extends 'Tienda/base_layout.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-warehouse me-2"></i>Gestión de Bodega - Mapa Interactivo</h2>
+        <a href="{% url 'home' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Volver al Inicio
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Panel de Control -->
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-tools me-2"></i>Panel de Control</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Botones de Acción -->
+                    <div class="mb-3">
+                        <button class="btn btn-primary w-100 mb-2" onclick="crearSeccion()">
+                            <i class="fas fa-plus me-1"></i> Crear Sección
+                        </button>
+                        <button class="btn btn-warning w-100 mb-2" onclick="toggleModoEdicion()">
+                            <i class="fas fa-edit me-1"></i> <span id="modoEdicionText">Activar Edición</span>
+                        </button>
+                        <button class="btn btn-danger w-100" onclick="eliminarSeccionSeleccionada()">
+                            <i class="fas fa-trash me-1"></i> Eliminar Seleccionada
+                        </button>
+                    </div>
+
+                    <!-- Información de Sección Seleccionada -->
+                    <div id="infoSeccion" class="d-none">
+                        <hr>
+                        <h6><i class="fas fa-info-circle me-1"></i>Sección Seleccionada</h6>
+                        <div class="mb-2">
+                            <label class="form-label">Nombre:</label>
+                            <input type="text" id="nombreSeccion" class="form-control form-control-sm">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Descripción:</label>
+                            <textarea id="descripcionSeccion" class="form-control form-control-sm" rows="2"></textarea>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Color:</label>
+                            <input type="color" id="colorSeccion" class="form-control form-control-color" oninput="actualizarColorEnTiempoReal()">
+                        </div>
+                        <div class="row">
+                            <div class="col-6">
+                                <label class="form-label">Ancho:</label>
+                                <input type="number" id="anchoSeccion" class="form-control form-control-sm" min="50" oninput="actualizarTamanoEnTiempoReal()">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">Alto:</label>
+                                <input type="number" id="altoSeccion" class="form-control form-control-sm" min="50" oninput="actualizarTamanoEnTiempoReal()">
+                            </div>
+                        </div>
+                        <button class="btn btn-success btn-sm w-100 mt-2" onclick="actualizarSeccionSeleccionada()">
+                            <i class="fas fa-save me-1"></i> Guardar Cambios
+                        </button>
+                        <button class="btn btn-primary btn-sm w-100 mt-1" onclick="mostrarLotesSeccion()">
+                            <i class="fas fa-boxes me-1"></i> Ver Lotes Asignados
+                        </button>
+                    </div>
+
+                    <!-- Lista de Lotes Disponibles -->
+                    <hr>
+                    <h6><i class="fas fa-boxes me-1"></i>Lotes Disponibles</h6>
+                    <div id="lotesDisponibles" class="list-group" style="max-height: 200px; overflow-y: auto;">
+                        {% for lote in lotes_disponibles %}
+                        <div class="list-group-item list-group-item-action p-2" 
+                             draggable="true" 
+                             ondragstart="dragLote(event, {{ lote.id }}, '{{ lote.code_lote|escapejs }}')">
+                            <small><strong>{{ lote.code_lote }}</strong><br>
+                            {{ lote.proveedor.nombre_proveedor }}<br>
+                            <span class="text-muted">{{ lote.fecha_registro|date:"d/m/Y" }}</span></small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mapa de Bodega -->
+        <div class="col-md-9">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-map me-2"></i>Mapa de Bodega</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div id="mapaBodega" class="position-relative" 
+                         style="height: 600px; background: linear-gradient(45deg, #f8f9fa 25%, transparent 25%), linear-gradient(-45deg, #f8f9fa 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f8f9fa 75%), linear-gradient(-45deg, transparent 75%, #f8f9fa 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px; overflow: hidden;"
+                         ondrop="dropLote(event)" 
+                         ondragover="allowDrop(event)"
+                         onclick="deseleccionarSeccion()">
+                        
+                        <!-- Las secciones se cargarán aquí dinámicamente -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para crear nueva sección -->
+<div class="modal fade" id="modalCrearSeccion" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-plus me-2"></i>Crear Nueva Sección</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formCrearSeccion">
+                    <div class="mb-3">
+                        <label for="nombreNuevaSeccion" class="form-label">Nombre de la Sección <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="nombreNuevaSeccion" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="descripcionNuevaSeccion" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="descripcionNuevaSeccion" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="colorNuevaSeccion" class="form-label">Color</label>
+                        <input type="color" class="form-control form-control-color" id="colorNuevaSeccion" value="#3498db">
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <label for="anchoNuevaSeccion" class="form-label">Ancho (px)</label>
+                            <input type="number" class="form-control" id="anchoNuevaSeccion" value="120" min="60">
+                        </div>
+                        <div class="col-6">
+                            <label for="altoNuevaSeccion" class="form-label">Alto (px)</label>
+                            <input type="number" class="form-control" id="altoNuevaSeccion" value="80" min="40">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="confirmarCrearSeccion()">Crear Sección</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para mostrar lotes de una sección -->
+<div class="modal fade" id="modalLotesSeccion" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="fas fa-boxes me-2"></i>Lotes Asignados - <span id="nombreSeccionModal"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="listadoLotesSeccion"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.seccion-bodega:hover {
+    opacity: 1 !important;
+    transform: scale(1.02);
+    transition: all 0.2s ease;
+}
+
+.seccion-bodega.selected {
+    border-color: #e74c3c !important;
+    border-width: 3px !important;
+    box-shadow: 0 0 15px rgba(231, 76, 60, 0.5);
+}
+
+.resize-handle {
+    display: none;
+    z-index: 10;
+}
+
+.seccion-bodega.selected .resize-handle {
+    display: block;
+}
+
+.seccion-bodega.selected {
+    resize: none !important;
+}
+
+.seccion-bodega:not(.selected) {
+    resize: both;
+}
+
+.list-group-item[draggable="true"]:hover {
+    background-color: #e3f2fd;
+    cursor: grab;
+}
+
+.list-group-item[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+#mapaBodega {
+    border: 2px dashed #dee2e6;
+}
+</style>
+
+<script>
+let seccionSeleccionada = null;
+let modoEdicion = true; // Activar modo edición por defecto
+let isDragging = false;
+let isResizing = false;
+let dragOffset = { x: 0, y: 0 };
+let resizeHandle = null;
+let initialSize = { width: 0, height: 0 };
+let initialMouse = { x: 0, y: 0 };
+
+// Función para abrir modal de crear sección
+function crearSeccion() {
+    // Limpiar formulario
+    document.getElementById('formCrearSeccion').reset();
+    document.getElementById('colorNuevaSeccion').value = '#3498db';
+    document.getElementById('anchoNuevaSeccion').value = '120';
+    document.getElementById('altoNuevaSeccion').value = '80';
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalCrearSeccion'));
+    modal.show();
+}
+
+// Función para validar y crear la sección
+function confirmarCrearSeccion() {
+    const nombre = document.getElementById('nombreNuevaSeccion').value;
+    const descripcion = document.getElementById('descripcionNuevaSeccion').value;
+    const color = document.getElementById('colorNuevaSeccion').value;
+    const ancho = parseInt(document.getElementById('anchoNuevaSeccion').value);
+    const alto = parseInt(document.getElementById('altoNuevaSeccion').value);
+    
+    let isValid = true;
+    
+    // Validar nombre
+    if (!nombre || nombre.trim() === '') {
+        isValid = false;
+    }
+    
+    // Validar ancho
+    if (ancho <= 0 || isNaN(ancho)) {
+        isValid = false;
+    }
+    
+    // Validar alto
+    if (alto <= 0 || isNaN(alto)) {
+        isValid = false;
+    }
+    
+    if (!isValid) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error de validación',
+            text: 'Por favor corrige los errores en el formulario.',
+            confirmButtonColor: '#e74c3c'
+        });
+        return;
+    }
+    
+    const data = {
+        nombre: nombre.trim(),
+        descripcion: descripcion.trim(),
+        tipo_forma: 'rectangulo',
+        posicion_x: 50,
+        posicion_y: 50,
+        ancho: ancho,
+        alto: alto,
+        color: color
+    };
+    
+    fetch('{% url "crear_seccion" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Error en la respuesta del servidor');
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (result.success) {
+            // Cerrar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalCrearSeccion'));
+            modal.hide();
+            
+            // Recargar secciones dinámicamente
+            cargarSecciones();
+            
+            // Mostrar mensaje de éxito con SweetAlert2
+            Swal.fire({
+                icon: 'success',
+                title: '¡Éxito!',
+                text: 'Sección creada correctamente',
+                confirmButtonColor: '#28a745',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error al crear la sección: ' + (result.error || 'Error desconocido'),
+                confirmButtonColor: '#e74c3c'
+            });
+        }
+    })
+    .catch(error => {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al crear la sección: ' + error.message,
+            confirmButtonColor: '#e74c3c'
+        });
+    });
+}
+
+// Función para seleccionar una sección
+function seleccionarSeccion(event, elemento) {
+    event.stopPropagation();
+    
+    // Deseleccionar sección anterior
+    if (seccionSeleccionada) {
+        seccionSeleccionada.classList.remove('selected');
+    }
+    
+    // Seleccionar nueva sección
+    seccionSeleccionada = elemento;
+    elemento.classList.add('selected');
+    
+    // Mostrar información en el panel
+    actualizarPanelInformacion();
+}
+
+// Función para actualizar solo el panel de información sin guardar
+function actualizarPanelInformacion() {
+    if (!seccionSeleccionada) return;
+    
+    document.getElementById('infoSeccion').classList.remove('d-none');
+    document.getElementById('nombreSeccion').value = seccionSeleccionada.dataset.nombre;
+    document.getElementById('descripcionSeccion').value = seccionSeleccionada.dataset.descripcion;
+    document.getElementById('colorSeccion').value = seccionSeleccionada.dataset.color;
+    document.getElementById('anchoSeccion').value = parseInt(seccionSeleccionada.style.width) || 100;
+    document.getElementById('altoSeccion').value = parseInt(seccionSeleccionada.style.height) || 100;
+    
+    // Panel de información actualizado
+}
+
+// Función para deseleccionar sección
+function deseleccionarSeccion() {
+    if (seccionSeleccionada) {
+        seccionSeleccionada.classList.remove('selected');
+        seccionSeleccionada = null;
+        document.getElementById('infoSeccion').classList.add('d-none');
+    }
+}
+
+// Función para actualizar nombre en tiempo real - DESHABILITADA para evitar errores
+// El nombre solo se actualiza al guardar los cambios
+function actualizarNombreEnTiempoReal() {
+    // Función deshabilitada - el nombre se actualiza solo al guardar
+    return;
+}
+
+// Función para actualizar color en tiempo real
+function actualizarColorEnTiempoReal() {
+    if (!seccionSeleccionada) return;
+    const nuevoColor = document.getElementById('colorSeccion').value;
+    seccionSeleccionada.style.backgroundColor = nuevoColor;
+    seccionSeleccionada.dataset.color = nuevoColor;
+}
+
+// Función para actualizar tamaño en tiempo real
+function actualizarTamanoEnTiempoReal() {
+    if (!seccionSeleccionada) return;
+    const nuevoAncho = parseInt(document.getElementById('anchoSeccion').value);
+    const nuevoAlto = parseInt(document.getElementById('altoSeccion').value);
+    
+    if (nuevoAncho >= 50) {
+        seccionSeleccionada.style.width = nuevoAncho + 'px';
+    }
+    if (nuevoAlto >= 50) {
+        seccionSeleccionada.style.height = nuevoAlto + 'px';
+    }
+}
+
+// Función para actualizar sección seleccionada
+function actualizarSeccionSeleccionada() {
+    if (!seccionSeleccionada) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atención',
+            text: 'Por favor selecciona una sección primero',
+            confirmButtonColor: '#f39c12'
+        });
+        return;
+    }
+    
+    // Validar nombre
+    const nombre = document.getElementById('nombreSeccion').value;
+    
+    if (!nombre || nombre.trim() === '') {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error de validación',
+            text: 'El nombre de la sección no puede estar vacío o contener solo espacios',
+            confirmButtonColor: '#e74c3c'
+        });
+        return;
+    }
+    
+    // Validar dimensiones
+    const ancho = parseInt(document.getElementById('anchoSeccion').value);
+    const alto = parseInt(document.getElementById('altoSeccion').value);
+    
+    if (ancho <= 0 || isNaN(ancho)) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error de validación',
+            text: 'El ancho debe ser mayor a 0',
+            confirmButtonColor: '#e74c3c'
+        });
+        return;
+    }
+    
+    if (alto <= 0 || isNaN(alto)) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error de validación',
+            text: 'El alto debe ser mayor a 0',
+            confirmButtonColor: '#e74c3c'
+        });
+        return;
+    }
+    
+    const data = {
+        nombre: nombre.trim(),
+        descripcion: document.getElementById('descripcionSeccion').value.trim(),
+        color: document.getElementById('colorSeccion').value,
+        ancho: ancho,
+        alto: alto,
+        posicion_x: parseInt(seccionSeleccionada.style.left.replace('px', '')) || 0,
+        posicion_y: parseInt(seccionSeleccionada.style.top.replace('px', '')) || 0
+    };
+    
+    fetch(`{% url 'actualizar_seccion' 0 %}`.replace('0', seccionSeleccionada.dataset.id), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Error en la respuesta del servidor');
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (result.success) {
+            // Verificar que la sección aún existe antes de actualizar
+            if (seccionSeleccionada && seccionSeleccionada.parentNode) {
+                // Actualizar solo los datos del dataset, mantener la posición visual actual
+                const spanElement = seccionSeleccionada.querySelector('span');
+                if (spanElement) {
+                    spanElement.textContent = data.nombre;
+                }
+                seccionSeleccionada.dataset.nombre = data.nombre;
+                seccionSeleccionada.dataset.descripcion = data.descripcion;
+                seccionSeleccionada.dataset.color = data.color;
+                // Actualizar color de fondo
+                seccionSeleccionada.style.backgroundColor = data.color;
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Éxito!',
+                    text: 'Cambios guardados correctamente',
+                    confirmButtonColor: '#28a745',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error: La sección no se pudo actualizar',
+                    confirmButtonColor: '#e74c3c'
+                });
+            }
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error al actualizar la sección: ' + (result.error || 'Error desconocido'),
+                confirmButtonColor: '#e74c3c'
+            });
+        }
+    })
+    .catch(error => {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al actualizar la sección: ' + error.message,
+            confirmButtonColor: '#e74c3c'
+        });
+    });
+}
+
+// Función para eliminar sección seleccionada
+function eliminarSeccionSeleccionada() {
+    if (!seccionSeleccionada) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atención',
+            text: 'Selecciona una sección para eliminar',
+            confirmButtonColor: '#f39c12'
+        });
+        return;
+    }
+    
+    Swal.fire({
+        title: '¿Estás seguro?',
+        text: '¿Quieres eliminar esta sección?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e74c3c',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+        fetch(`{% url 'eliminar_seccion' 0 %}`.replace('0', seccionSeleccionada.dataset.id), {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Error en la respuesta del servidor');
+            }
+            return response.json();
+        })
+        .then(result => {
+            if (result.success) {
+                seccionSeleccionada.remove();
+                deseleccionarSeccion();
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error al eliminar la sección: ' + (result.error || 'Error desconocido'),
+                    confirmButtonColor: '#e74c3c'
+                });
+            }
+        })
+        .catch(error => {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error al eliminar la sección: ' + error.message,
+                confirmButtonColor: '#e74c3c'
+            });
+        });
+        }
+    });
+}
+
+// Función para toggle modo edición
+function toggleModoEdicion() {
+    modoEdicion = !modoEdicion;
+    const texto = document.getElementById('modoEdicionText');
+    texto.textContent = modoEdicion ? 'Desactivar Edición' : 'Activar Edición';
+    
+    // Habilitar/deshabilitar arrastre
+    const secciones = document.querySelectorAll('.seccion-bodega');
+    secciones.forEach(seccion => {
+        if (modoEdicion) {
+            habilitarArrastre(seccion);
+        } else {
+            deshabilitarArrastre(seccion);
+        }
+    });
+}
+
+// Funciones de arrastre
+function habilitarArrastre(elemento) {
+    elemento.addEventListener('mousedown', iniciarArrastre);
+}
+
+function deshabilitarArrastre(elemento) {
+    elemento.removeEventListener('mousedown', iniciarArrastre);
+}
+
+function iniciarArrastre(e) {
+    if (!modoEdicion) return;
+    
+    // Verificar si se hizo clic en un handle de redimensionamiento
+    if (e.target.classList.contains('resize-handle')) {
+        iniciarRedimensionamiento(e);
+        return;
+    }
+    
+    isDragging = true;
+    
+    // Deseleccionar sección anterior
+    if (seccionSeleccionada) {
+        seccionSeleccionada.classList.remove('selected');
+    }
+    
+    // Seleccionar la sección que se está arrastrando
+    seccionSeleccionada = this;
+    this.classList.add('selected');
+    
+    // Mostrar información en el panel
+    document.getElementById('infoSeccion').classList.remove('d-none');
+    document.getElementById('nombreSeccion').value = this.dataset.nombre;
+    document.getElementById('descripcionSeccion').value = this.dataset.descripcion;
+    document.getElementById('colorSeccion').value = this.dataset.color;
+    document.getElementById('anchoSeccion').value = parseInt(this.style.width) || 100;
+    document.getElementById('altoSeccion').value = parseInt(this.style.height) || 100;
+    
+    const rect = this.getBoundingClientRect();
+    const mapRect = document.getElementById('mapaBodega').getBoundingClientRect();
+    
+    dragOffset.x = e.clientX - rect.left;
+    dragOffset.y = e.clientY - rect.top;
+    
+    document.addEventListener('mousemove', arrastrar);
+    document.addEventListener('mouseup', terminarArrastre);
+    
+    e.preventDefault();
+}
+
+function arrastrar(e) {
+    if (!isDragging || !seccionSeleccionada) return;
+    
+    const mapRect = document.getElementById('mapaBodega').getBoundingClientRect();
+    const newX = e.clientX - mapRect.left - dragOffset.x;
+    const newY = e.clientY - mapRect.top - dragOffset.y;
+    
+    // Limitar dentro del mapa
+    const maxX = mapRect.width - parseInt(seccionSeleccionada.style.width);
+    const maxY = mapRect.height - parseInt(seccionSeleccionada.style.height);
+    
+    seccionSeleccionada.style.left = Math.max(0, Math.min(newX, maxX)) + 'px';
+    seccionSeleccionada.style.top = Math.max(0, Math.min(newY, maxY)) + 'px';
+    
+    // Actualizar información del panel si está visible
+    if (!document.getElementById('infoSeccion').classList.contains('d-none')) {
+        document.getElementById('nombreSeccion').value = seccionSeleccionada.dataset.nombre;
+        document.getElementById('descripcionSeccion').value = seccionSeleccionada.dataset.descripcion;
+        document.getElementById('colorSeccion').value = seccionSeleccionada.dataset.color;
+        document.getElementById('anchoSeccion').value = parseInt(seccionSeleccionada.style.width) || 100;
+        document.getElementById('altoSeccion').value = parseInt(seccionSeleccionada.style.height) || 100;
+    }
+}
+
+function terminarArrastre() {
+    // Solo actualizar el panel de información, no guardar automáticamente
+    if ((isDragging || isResizing) && seccionSeleccionada) {
+        actualizarPanelInformacion();
+    }
+    isDragging = false;
+    isResizing = false;
+    resizeHandle = null;
+    document.removeEventListener('mousemove', arrastrar);
+    document.removeEventListener('mousemove', redimensionar);
+    document.removeEventListener('mouseup', terminarArrastre);
+}
+
+// Funciones de redimensionamiento
+function iniciarRedimensionamiento(e) {
+    if (!modoEdicion) return;
+    
+    isResizing = true;
+    resizeHandle = e.target;
+    
+    const seccion = e.target.closest('.seccion-bodega');
+    if (seccion) {
+        seccionSeleccionada = seccion;
+        seccion.classList.add('selected');
+        
+        initialSize.width = parseInt(seccion.style.width);
+        initialSize.height = parseInt(seccion.style.height);
+        initialMouse.x = e.clientX;
+        initialMouse.y = e.clientY;
+        
+        document.addEventListener('mousemove', redimensionar);
+        document.addEventListener('mouseup', terminarArrastre);
+    }
+    
+    e.preventDefault();
+    e.stopPropagation();
+}
+
+function redimensionar(e) {
+    if (!isResizing || !seccionSeleccionada || !resizeHandle) return;
+    
+    const deltaX = e.clientX - initialMouse.x;
+    const deltaY = e.clientY - initialMouse.y;
+    
+    let newWidth = initialSize.width;
+    let newHeight = initialSize.height;
+    
+    if (resizeHandle.classList.contains('resize-se')) {
+        // Redimensionar desde esquina inferior derecha
+        newWidth = Math.max(60, initialSize.width + deltaX);
+        newHeight = Math.max(40, initialSize.height + deltaY);
+    } else if (resizeHandle.classList.contains('resize-s')) {
+        // Redimensionar solo altura desde abajo
+        newHeight = Math.max(40, initialSize.height + deltaY);
+    } else if (resizeHandle.classList.contains('resize-e')) {
+        // Redimensionar solo ancho desde la derecha
+        newWidth = Math.max(60, initialSize.width + deltaX);
+    }
+    
+    // Verificar límites del mapa
+    const mapRect = document.getElementById('mapaBodega').getBoundingClientRect();
+    const seccionRect = seccionSeleccionada.getBoundingClientRect();
+    const mapLeft = parseInt(seccionSeleccionada.style.left);
+    const mapTop = parseInt(seccionSeleccionada.style.top);
+    
+    if (mapLeft + newWidth > mapRect.width) {
+        newWidth = mapRect.width - mapLeft;
+    }
+    if (mapTop + newHeight > mapRect.height) {
+        newHeight = mapRect.height - mapTop;
+    }
+    
+    seccionSeleccionada.style.width = newWidth + 'px';
+    seccionSeleccionada.style.height = newHeight + 'px';
+    
+    // Actualizar información del panel si está visible
+    if (!document.getElementById('infoSeccion').classList.contains('d-none')) {
+        document.getElementById('anchoSeccion').value = newWidth;
+        document.getElementById('altoSeccion').value = newHeight;
+    }
+}
+
+// Funciones de drag and drop para lotes
+function dragLote(event, loteId, loteCodigo) {
+    event.dataTransfer.setData('loteId', loteId);
+    event.dataTransfer.setData('loteCodigo', loteCodigo);
+}
+
+function allowDrop(event) {
+    event.preventDefault();
+}
+
+function dropLote(event) {
+    event.preventDefault();
+    // Si se suelta en el mapa pero no en una sección, no hacer nada
+}
+
+function dropLoteEnSeccion(event, seccionId) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const loteId = event.dataTransfer.getData('loteId');
+    const loteCodigo = event.dataTransfer.getData('loteCodigo');
+    
+    if (loteId) {
+        Swal.fire({
+            title: '¿Asignar lote?',
+            text: `¿Asignar el lote ${loteCodigo} a esta sección?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#28a745',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, asignar',
+            cancelButtonText: 'Cancelar',
+            input: 'textarea',
+            inputPlaceholder: 'Observaciones (opcional)...'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const observaciones = result.value || '';
+
+        
+        fetch('{% url "asignar_lote_seccion" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                seccion_id: seccionId,
+                lote_id: loteId,
+                observaciones: observaciones
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Error en la respuesta del servidor');
+            }
+            return response.json();
+        })
+        .then(result => {
+            if (result.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Éxito!',
+                    text: 'Lote asignado correctamente',
+                    confirmButtonColor: '#28a745',
+                    timer: 2000,
+                    showConfirmButton: false
+                }).then(() => {
+                    location.reload();
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error al asignar el lote: ' + (result.error || 'Error desconocido'),
+                    confirmButtonColor: '#e74c3c'
+                });
+            }
+        })
+        .catch(error => {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error al asignar el lote: ' + error.message,
+                confirmButtonColor: '#e74c3c'
+            });
+        });
+            }
+        });
+    }
+}
+
+// Función para mostrar lotes de una sección
+function mostrarLotesSeccion() {
+    if (!seccionSeleccionada) return;
+    
+    const seccionId = seccionSeleccionada.dataset.id;
+    const nombreSeccion = seccionSeleccionada.dataset.nombre;
+    
+    fetch(`{% url 'obtener_lotes_seccion' 0 %}`.replace('0', seccionId), {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Error en la respuesta del servidor');
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (result.success) {
+            document.getElementById('nombreSeccionModal').textContent = nombreSeccion;
+            
+            let html = '';
+            if (result.lotes.length === 0) {
+                html = '<p class="text-muted">No hay lotes asignados a esta sección.</p>';
+            } else {
+                html = '<div class="table-responsive"><table class="table table-striped"><thead><tr><th>Código Lote</th><th>Proveedor</th><th>Fecha Registro</th><th>Fecha Asignación</th><th>Observaciones</th><th>Acciones</th></tr></thead><tbody>';
+                
+                result.lotes.forEach(lote => {
+                    html += `<tr>
+                        <td><strong>${lote.lote_codigo}</strong></td>
+                        <td>${lote.proveedor}</td>
+                        <td>${lote.fecha_registro}</td>
+                        <td>${lote.fecha_asignacion}</td>
+                        <td>${lote.observaciones}</td>
+                        <td><button class="btn btn-sm btn-danger" onclick="desasignarLote(${lote.asignacion_id})"><i class="fas fa-unlink"></i></button></td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table></div>';
+            }
+            
+            document.getElementById('listadoLotesSeccion').innerHTML = html;
+            const modal = new bootstrap.Modal(document.getElementById('modalLotesSeccion'));
+            modal.show();
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error al obtener los lotes: ' + (result.error || 'Error desconocido'),
+                confirmButtonColor: '#e74c3c'
+            });
+        }
+    })
+    .catch(error => {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al obtener los lotes: ' + error.message,
+            confirmButtonColor: '#e74c3c'
+        });
+    });
+}
+
+// Función para desasignar lote
+function desasignarLote(asignacionId) {
+    Swal.fire({
+        title: '¿Estás seguro?',
+        text: '¿Quieres desasignar este lote?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e74c3c',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, desasignar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+        fetch(`{% url 'desasignar_lote_seccion' 0 %}`.replace('0', asignacionId), {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Error en la respuesta del servidor');
+            }
+            return response.json();
+        })
+        .then(result => {
+            if (result.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Éxito!',
+                    text: 'Lote desasignado correctamente',
+                    confirmButtonColor: '#28a745',
+                    timer: 2000,
+                    showConfirmButton: false
+                }).then(() => {
+                    mostrarLotesSeccion(); // Refrescar la lista
+                    setTimeout(() => location.reload(), 1000); // Refrescar la página para actualizar la lista de lotes disponibles
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error al desasignar el lote: ' + (result.error || 'Error desconocido'),
+                    confirmButtonColor: '#e74c3c'
+                });
+            }
+        })
+        .catch(error => {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error al desasignar el lote: ' + error.message,
+                confirmButtonColor: '#e74c3c'
+            });
+        });
+        }
+    });
+}
+
+// Función para obtener cookie CSRF
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Función para cargar secciones dinámicamente desde la base de datos
+function cargarSecciones() {
+    fetch('{% url "obtener_secciones" %}', {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Error en la respuesta del servidor');
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (result.success) {
+            const mapaBodega = document.getElementById('mapaBodega');
+            
+            // Limpiar secciones existentes
+            const seccionesExistentes = mapaBodega.querySelectorAll('.seccion-bodega');
+            seccionesExistentes.forEach(seccion => seccion.remove());
+            
+            // Agregar cada sección una por una
+            result.secciones.forEach(seccionData => {
+                crearElementoSeccion(seccionData);
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error al cargar las secciones: ' + (result.error || 'Error desconocido'),
+                confirmButtonColor: '#e74c3c'
+            });
+        }
+    })
+    .catch(error => {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al cargar las secciones: ' + error.message,
+            confirmButtonColor: '#e74c3c'
+        });
+    });
+}
+
+// Función para crear un elemento de sección en el DOM
+function crearElementoSeccion(seccionData) {
+    const mapaBodega = document.getElementById('mapaBodega');
+    
+    const seccionElement = document.createElement('div');
+    seccionElement.className = 'seccion-bodega';
+    seccionElement.dataset.id = seccionData.id;
+    seccionElement.dataset.nombre = seccionData.nombre;
+    seccionElement.dataset.descripcion = seccionData.descripcion;
+    seccionElement.dataset.tipo = seccionData.tipo_forma;
+    seccionElement.dataset.color = seccionData.color;
+    
+    seccionElement.style.cssText = `
+        position: absolute;
+        left: ${seccionData.posicion_x}px;
+        top: ${seccionData.posicion_y}px;
+        width: ${seccionData.ancho}px;
+        height: ${seccionData.alto}px;
+        background-color: ${seccionData.color};
+        border: 2px solid #2c3e50;
+        border-radius: 6px;
+        cursor: move;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+        user-select: none;
+        opacity: 0.8;
+        resize: both;
+        overflow: hidden;
+        min-width: 60px;
+        min-height: 40px;
+    `;
+    
+    seccionElement.onclick = function(event) {
+        seleccionarSeccion(event, this);
+    };
+    
+    seccionElement.ondrop = function(event) {
+        dropLoteEnSeccion(event, seccionData.id);
+    };
+    
+    seccionElement.ondragover = allowDrop;
+    
+    // Crear el contenido de la sección
+    const span = document.createElement('span');
+    span.textContent = seccionData.nombre;
+    seccionElement.appendChild(span);
+    
+    // Crear handles de redimensionamiento
+    const handleSE = document.createElement('div');
+    handleSE.className = 'resize-handle resize-se';
+    handleSE.style.cssText = 'position: absolute; bottom: -2px; right: -2px; width: 12px; height: 12px; background: #e74c3c; cursor: se-resize; border-radius: 0 0 4px 0;';
+    seccionElement.appendChild(handleSE);
+    
+    const handleS = document.createElement('div');
+    handleS.className = 'resize-handle resize-s';
+    handleS.style.cssText = 'position: absolute; bottom: -2px; left: 50%; transform: translateX(-50%); width: 12px; height: 6px; background: #e74c3c; cursor: s-resize;';
+    seccionElement.appendChild(handleS);
+    
+    const handleE = document.createElement('div');
+    handleE.className = 'resize-handle resize-e';
+    handleE.style.cssText = 'position: absolute; right: -2px; top: 50%; transform: translateY(-50%); width: 6px; height: 12px; background: #e74c3c; cursor: e-resize;';
+    seccionElement.appendChild(handleE);
+    
+    // Agregar al mapa
+    mapaBodega.appendChild(seccionElement);
+    
+    // Habilitar funcionalidades de arrastre
+    habilitarArrastre(seccionElement);
+}
+
+// Inicialización cuando se carga el DOM
+document.addEventListener('DOMContentLoaded', function() {
+    // Cargar secciones dinámicamente desde la base de datos
+    cargarSecciones();
+    
+    // Actualizar el texto del botón de modo edición
+    const texto = document.getElementById('modoEdicionText');
+    if (texto) {
+        texto.textContent = modoEdicion ? 'Desactivar Edición' : 'Activar Edición';
+    }
+    
+    // Verificar que Bootstrap esté disponible
+    if (typeof bootstrap === 'undefined') {
+        // Bootstrap no está disponible
+    }
+});
+</script>
+
+{% endblock %}

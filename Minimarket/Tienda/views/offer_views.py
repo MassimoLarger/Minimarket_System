@@ -2,110 +2,178 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import JsonResponse
-from django.utils import timezone
 from django.db import transaction
-from ..models import Oferta, Producto, Oferta_producto, Oferta_vencimiento
+from datetime import datetime
+from ..models import OfertaProducto, OfertaVencimiento, Producto
 
 def is_superuser(user):
     return user.is_superuser
 
 @login_required
-def ofertas(request):
-    if request.method == 'POST' and request.user.is_superuser:
+@user_passes_test(is_superuser, login_url='home')
+def gestionar_ofertas(request):
+    ofertas_producto = OfertaProducto.objects.all().order_by('-fecha_inicio')
+    ofertas_vencimiento = OfertaVencimiento.objects.all().order_by('-fecha_inicio')
+    productos = Producto.objects.all().order_by('nombre')
+    
+    if request.method == 'POST':
         action = request.POST.get('action')
         oferta_id = request.POST.get('oferta_id')
-
-        if action == 'save_oferta':
-            try:
+        tipo_oferta = request.POST.get('tipo_oferta')
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        
+        try:
+            if action == 'add_oferta':
                 with transaction.atomic():
-                    if oferta_id:
-                        oferta = get_object_or_404(Oferta, id=oferta_id)
-                        oferta.tipo_oferta = request.POST.get('tipo_oferta')
-                        oferta.descuento_porcetaje = float(request.POST.get('descuento_porcentaje'))
-                        oferta.fecha_inicio = request.POST.get('fecha_inicio')
-                        oferta.fecha_fin = request.POST.get('fecha_fin')
+                    nombre = request.POST.get('nombre', '').strip()
+                    if not nombre:
+                        raise ValueError('El nombre de la oferta no puede estar vacío.')
+                    
+                    fecha_inicio = request.POST.get('fecha_inicio')
+                    fecha_fin = request.POST.get('fecha_fin') or None
+                    descuento_porcentaje = int(request.POST.get('descuento_porcentaje', 0))
+                    activa = request.POST.get('activa') == 'on'
+                    
+                    if descuento_porcentaje <= 0 or descuento_porcentaje > 100:
+                        raise ValueError('El descuento debe estar entre 1 y 100%.')
+                    
+                    if fecha_fin and fecha_inicio >= fecha_fin:
+                        raise ValueError('La fecha de fin debe ser posterior a la fecha de inicio.')
+                    
+                    if tipo_oferta == 'producto':
+                        productos_ids = request.POST.getlist('productos[]')
+                        if not productos_ids:
+                            raise ValueError('Debe seleccionar al menos un producto.')
+                        
+                        oferta = OfertaProducto.objects.create(
+                            nombre=nombre,
+                            fecha_inicio=fecha_inicio,
+                            fecha_fin=fecha_fin,
+                            descuento_porcentaje=descuento_porcentaje,
+                            activa=activa
+                        )
+                        oferta.productos.set(productos_ids)
+                        
+                    elif tipo_oferta == 'vencimiento':
+                        dias_antes_vencimiento = int(request.POST.get('dias_antes_vencimiento', 3))
+                        if dias_antes_vencimiento <= 0:
+                            raise ValueError('Los días antes del vencimiento deben ser mayor a 0.')
+                        
+                        oferta = OfertaVencimiento.objects.create(
+                            nombre=nombre,
+                            fecha_inicio=fecha_inicio,
+                            fecha_fin=fecha_fin,
+                            descuento_porcentaje=descuento_porcentaje,
+                            activa=activa,
+                            dias_antes_vencimiento=dias_antes_vencimiento
+                        )
+                    
+                    mensaje = f'Oferta "{nombre}" creada correctamente.'
+                    if is_ajax:
+                        return JsonResponse({'success': True, 'message': mensaje})
+                    messages.success(request, mensaje)
+            
+            elif action == 'edit_oferta' and oferta_id:
+                with transaction.atomic():
+                    nombre = request.POST.get('nombre', '').strip()
+                    if not nombre:
+                        raise ValueError('El nombre de la oferta no puede estar vacío.')
+                    
+                    fecha_inicio = request.POST.get('fecha_inicio')
+                    fecha_fin = request.POST.get('fecha_fin') or None
+                    descuento_porcentaje = int(request.POST.get('descuento_porcentaje', 0))
+                    activa = request.POST.get('activa') == 'on'
+                    
+                    if descuento_porcentaje <= 0 or descuento_porcentaje > 100:
+                        raise ValueError('El descuento debe estar entre 1 y 100%.')
+                    
+                    if fecha_fin and fecha_inicio >= fecha_fin:
+                        raise ValueError('La fecha de fin debe ser posterior a la fecha de inicio.')
+                    
+                    if tipo_oferta == 'producto':
+                        oferta = get_object_or_404(OfertaProducto, id=oferta_id)
+                        productos_ids = request.POST.getlist('productos[]')
+                        if not productos_ids:
+                            raise ValueError('Debe seleccionar al menos un producto.')
+                        
+                        oferta.nombre = nombre
+                        oferta.fecha_inicio = fecha_inicio
+                        oferta.fecha_fin = fecha_fin
+                        oferta.descuento_porcentaje = descuento_porcentaje
+                        oferta.activa = activa
                         oferta.save()
-                        messages.success(request, f'Oferta "{oferta.tipo_oferta}" actualizada.')
-                        Oferta_producto.objects.filter(oferta_id=oferta).delete()
-                        Oferta_vencimiento.objects.filter(oferta_id=oferta).delete()
-                    else:
-                        oferta = Oferta.objects.create(
-                            tipo_oferta=request.POST.get('tipo_oferta'),
-                            descuento_porcetaje=float(request.POST.get('descuento_porcentaje')),
-                            fecha_inicio=request.POST.get('fecha_inicio'),
-                            fecha_fin=request.POST.get('fecha_fin'),
-                            creado_por=request.user
-                        )
-                        messages.success(request, f'Oferta "{oferta.tipo_oferta}" creada.')
-
-                    productos_oferta_ids = request.POST.getlist('productos_oferta')
-                    for producto_id in productos_oferta_ids:
-                        producto = get_object_or_404(Producto, id=producto_id)
-                        Oferta_producto.objects.create(oferta_id=oferta, producto_id=producto)
-
-                    i = 1
-                    while True:
-                        producto_vencimiento_id = request.POST.get(f'producto_vencimiento_{i}')
-                        cantidad_vencimiento = request.POST.get(f'cantidad_vencimiento_{i}')
-                        new_code_bar = request.POST.get(f'new_code_bar_{i}')
+                        oferta.productos.set(productos_ids)
                         
-                        if not producto_vencimiento_id or not cantidad_vencimiento:
-                            break
-                            
-                        producto_venc = get_object_or_404(Producto, id=producto_vencimiento_id)
-                        Oferta_vencimiento.objects.create(
-                            oferta_id=oferta,
-                            producto_id=producto_venc,
-                            cantidad=cantidad_vencimiento,
-                            new_code_bar=new_code_bar if new_code_bar else None
-                        )
-                        i += 1
+                    elif tipo_oferta == 'vencimiento':
+                        oferta = get_object_or_404(OfertaVencimiento, id=oferta_id)
+                        dias_antes_vencimiento = int(request.POST.get('dias_antes_vencimiento', 3))
+                        if dias_antes_vencimiento <= 0:
+                            raise ValueError('Los días antes del vencimiento deben ser mayor a 0.')
                         
-                return redirect('ofertas')
-
-            except Exception as e:
-                messages.error(request, f'Error al guardar la oferta: {e}')
-
-        elif action == 'delete_oferta' and oferta_id:
-             try:
-                 oferta = get_object_or_404(Oferta, id=oferta_id)
-                 nombre_oferta = oferta.tipo_oferta
-                 oferta.delete()
-                 messages.success(request, f'Oferta "{nombre_oferta}" eliminada.')
-             except Exception as e:
-                 messages.error(request, f'Error al eliminar la oferta: {e}')
-             return redirect('ofertas')
-             
-        elif action == 'get_oferta':
-            try:
-                oferta = get_object_or_404(Oferta, id=oferta_id)
-                productos_oferta = [op.producto_id.id for op in Oferta_producto.objects.filter(oferta_id=oferta)]
-                productos_vencimiento = [{
-                    'producto_id': ov.producto_id.id,
-                    'cantidad': ov.cantidad,
-                    'new_code_bar': ov.new_code_bar or ''
-                } for ov in Oferta_vencimiento.objects.filter(oferta_id=oferta)]
-                
-                return JsonResponse({
-                    'id': oferta.id,
-                    'tipo_oferta': oferta.tipo_oferta,
-                    'descuento_porcentaje': float(oferta.descuento_porcetaje),
-                    'fecha_inicio': oferta.fecha_inicio.strftime('%Y-%m-%d'),
-                    'fecha_fin': oferta.fecha_fin.strftime('%Y-%m-%d'),
-                    'productos_oferta': productos_oferta,
-                    'productos_vencimiento': productos_vencimiento
-                })
-            except Exception as e:
-                return JsonResponse({'error': str(e)}, status=400)
-
-    ofertas_activas = Oferta.objects.filter(fecha_inicio__lte=timezone.now().date(), fecha_fin__gte=timezone.now().date())
+                        oferta.nombre = nombre
+                        oferta.fecha_inicio = fecha_inicio
+                        oferta.fecha_fin = fecha_fin
+                        oferta.descuento_porcentaje = descuento_porcentaje
+                        oferta.activa = activa
+                        oferta.dias_antes_vencimiento = dias_antes_vencimiento
+                        oferta.save()
+                    
+                    mensaje = f'Oferta "{nombre}" actualizada correctamente.'
+                    if is_ajax:
+                        return JsonResponse({'success': True, 'message': mensaje})
+                    messages.success(request, mensaje)
+            
+            elif action == 'delete_oferta' and oferta_id:
+                with transaction.atomic():
+                    if tipo_oferta == 'producto':
+                        oferta = get_object_or_404(OfertaProducto, id=oferta_id)
+                    elif tipo_oferta == 'vencimiento':
+                        oferta = get_object_or_404(OfertaVencimiento, id=oferta_id)
+                    
+                    nombre_oferta = oferta.nombre
+                    oferta.delete()
+                    
+                    mensaje = f'Oferta "{nombre_oferta}" eliminada correctamente.'
+                    if is_ajax:
+                        return JsonResponse({'success': True, 'message': mensaje})
+                    messages.success(request, mensaje)
+            
+            elif action == 'get_oferta' and oferta_id:
+                if tipo_oferta == 'producto':
+                    oferta = get_object_or_404(OfertaProducto, id=oferta_id)
+                    productos_ids = list(oferta.productos.values_list('id', flat=True))
+                    return JsonResponse({
+                        'id': oferta.id,
+                        'nombre': oferta.nombre,
+                        'fecha_inicio': oferta.fecha_inicio.strftime('%Y-%m-%d'),
+                        'fecha_fin': oferta.fecha_fin.strftime('%Y-%m-%d') if oferta.fecha_fin else '',
+                        'descuento_porcentaje': oferta.descuento_porcentaje,
+                        'activa': oferta.activa,
+                        'productos': productos_ids,
+                        'tipo': 'producto'
+                    })
+                elif tipo_oferta == 'vencimiento':
+                    oferta = get_object_or_404(OfertaVencimiento, id=oferta_id)
+                    return JsonResponse({
+                        'id': oferta.id,
+                        'nombre': oferta.nombre,
+                        'fecha_inicio': oferta.fecha_inicio.strftime('%Y-%m-%d'),
+                        'fecha_fin': oferta.fecha_fin.strftime('%Y-%m-%d') if oferta.fecha_fin else '',
+                        'descuento_porcentaje': oferta.descuento_porcentaje,
+                        'activa': oferta.activa,
+                        'dias_antes_vencimiento': oferta.dias_antes_vencimiento,
+                        'tipo': 'vencimiento'
+                    })
+        
+        except Exception as e:
+            if is_ajax:
+                return JsonResponse({'success': False, 'message': str(e)}, status=400)
+            messages.error(request, f'Error: {e}')
+    
     context = {
-        'ofertas_activas': ofertas_activas,
-        'es_admin': request.user.is_superuser
+        'ofertas_producto': ofertas_producto,
+        'ofertas_vencimiento': ofertas_vencimiento,
+        'productos': productos,
+        'es_superadmin': request.user.is_superuser
     }
-
-    if request.user.is_superuser:
-        context['todas_ofertas'] = Oferta.objects.all().order_by('-fecha_inicio')
-        context['productos'] = Producto.objects.all()
-
     return render(request, 'Tienda/ofertas.html', context)

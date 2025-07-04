@@ -3,7 +3,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import JsonResponse
 from django.db import transaction
-from ..models import Producto, DetalleVenta, Oferta_producto, LoteProducto, Categoria
+from ..models import Producto, DetalleVenta, LoteProducto, Categoria
 
 def is_superuser(user):
     return user.is_superuser
@@ -89,9 +89,8 @@ def gestionar_productos(request):
                 producto = get_object_or_404(Producto, id=producto_id)
                 nombre_producto = producto.nombre
                 en_ventas = DetalleVenta.objects.filter(producto=producto).exists()
-                en_ofertas = Oferta_producto.objects.filter(producto_id=producto).exists()
                 en_lotes = LoteProducto.objects.filter(producto=producto).exists()
-                if en_ventas or en_ofertas or en_lotes:
+                if en_ventas or en_lotes:
                     mensaje = f'No se puede eliminar "{nombre_producto}" porque tiene registros relacionados.'
                     if is_ajax:
                         return JsonResponse({'success': False, 'message': mensaje}, status=400)

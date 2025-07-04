@@ -1,0 +1,638 @@
+{% extends 'Tienda/base_layout.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-chart-line me-2"></i>Gestión de Reportes</h2>
+        <a href="{% url 'home' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Volver al Inicio
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Panel de Control -->
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-plus me-2"></i>Crear Nuevo Reporte</h5>
+                </div>
+                <div class="card-body">
+                    <form id="formCrearReporte">
+                        <div class="mb-3">
+                            <label for="nombreReporte" class="form-label">Nombre del Reporte</label>
+                            <input type="text" class="form-control" id="nombreReporte" name="nombreReporte" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="descripcionReporte" class="form-label">Descripción</label>
+                            <textarea class="form-control" id="descripcionReporte" name="descripcionReporte" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="tipoReporte" class="form-label">Tipo de Reporte</label>
+                            <select class="form-select" id="tipoReporte" name="tipoReporte" onchange="mostrarCamposProducto()" required>
+                                <option value="">Seleccionar tipo...</option>
+                                <option value="producto">Producto</option>
+                                <option value="perdida">Pérdida</option>
+                                <option value="inventario">Inventario</option>
+                                <option value="ventas">Ventas</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Campos para productos (solo visible cuando tipo es 'producto' o 'perdida') -->
+                        <div id="camposProducto" style="display: none;">
+                            <div class="mb-3">
+                                <label for="productoReporte" class="form-label">Producto Afectado</label>
+                                <select class="form-select" id="productoReporte" name="productoReporte">
+                                    <option value="">Seleccionar producto...</option>
+                                    {% for producto in productos %}
+                                    <option value="{{ producto.id }}" data-stock="{{ producto.stock }}">{{ producto.nombre }} (Stock: {{ producto.stock }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-3" id="divCantidadReporte">
+                                <label for="cantidadReporte" class="form-label">Cantidad</label>
+                                <input type="number" class="form-control" id="cantidadReporte" name="cantidadReporte" min="1">
+                                <small class="text-muted">Para pérdidas, esta cantidad se descontará del stock</small>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-save me-1"></i> Crear Reporte
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de Reportes -->
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>Reportes Existentes</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Tipo</th>
+                                    <th>Fecha Creación</th>
+                                    <th>Usuario</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaReportes">
+                                {% for reporte in reportes %}
+                                <tr data-reporte-id="{{ reporte.id }}">
+                                    <td><strong>{{ reporte.nombre_reporte }}</strong></td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if reporte.tipo == 'producto' %}bg-info
+                                            {% elif reporte.tipo == 'perdida' %}bg-danger
+                                            {% elif reporte.tipo == 'inventario' %}bg-warning
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ reporte.get_tipo_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ reporte.fecha_creacion|date:"d/m/Y H:i" }}</td>
+                                    <td>{{ reporte.usuario_creador.username }}</td>
+                                    <td>
+                                        <span class="badge {% if reporte.activo %}bg-success{% else %}bg-secondary{% endif %}">
+                                            {% if reporte.activo %}Activo{% else %}Inactivo{% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button type="button" class="btn btn-outline-info" onclick="verDetalleReporte({{ reporte.id }})" title="Ver Detalle">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-outline-warning" onclick="editarReporte({{ reporte.id }})" title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-outline-{% if reporte.activo %}secondary{% else %}success{% endif %}" 
+                                                    onclick="toggleEstadoReporte({{ reporte.id }}, {{ reporte.activo|yesno:'true,false' }})" 
+                                                    title="{% if reporte.activo %}Desactivar{% else %}Activar{% endif %}">
+                                                <i class="fas fa-{% if reporte.activo %}pause{% else %}play{% endif %}"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-outline-danger" onclick="eliminarReporte({{ reporte.id }})" title="Eliminar">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">
+                                        <i class="fas fa-inbox fa-2x mb-2"></i><br>
+                                        No hay reportes registrados
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Ver Detalle del Reporte -->
+<div class="modal fade" id="modalDetalleReporte" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="fas fa-info-circle me-2"></i>Detalle del Reporte</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="contenidoDetalleReporte">
+                <!-- Contenido cargado dinámicamente -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Editar Reporte -->
+<div class="modal fade" id="modalEditarReporte" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Editar Reporte</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formEditarReporte">
+                    <input type="hidden" id="editReporteId" name="editReporteId">
+                    <div class="mb-3">
+                        <label for="editNombreReporte" class="form-label">Nombre del Reporte</label>
+                        <input type="text" class="form-control" id="editNombreReporte" name="editNombreReporte" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editDescripcionReporte" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="editDescripcionReporte" name="editDescripcionReporte" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editTipoReporte" class="form-label">Tipo de Reporte</label>
+                        <select class="form-select" id="editTipoReporte" name="editTipoReporte" onchange="mostrarCamposProductoEdit()" required>
+                            <option value="producto">Producto</option>
+                            <option value="perdida">Pérdida</option>
+                            <option value="inventario">Inventario</option>
+                            <option value="ventas">Ventas</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Campos para productos en edición -->
+                    <div id="camposProductoEdit" style="display: none;">
+                        <div class="mb-3">
+                            <label for="editProductoReporte" class="form-label">Producto Afectado</label>
+                            <select class="form-select" id="editProductoReporte" name="editProductoReporte">
+                                <option value="">Seleccionar producto...</option>
+                                {% for producto in productos %}
+                                <option value="{{ producto.id }}" data-stock="{{ producto.stock }}">{{ producto.nombre }} (Stock: {{ producto.stock }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3" id="divEditCantidadReporte">
+                            <label for="editCantidadReporte" class="form-label">Cantidad</label>
+                            <input type="number" class="form-control" id="editCantidadReporte" name="editCantidadReporte" min="1">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" onclick="confirmarEditarReporte()">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+// Mostrar/ocultar campos de producto según el tipo seleccionado
+function mostrarCamposProducto() {
+    const tipo = document.getElementById('tipoReporte').value;
+    const camposProducto = document.getElementById('camposProducto');
+    const divCantidad = document.getElementById('divCantidadReporte');
+    
+    if (tipo === 'producto' || tipo === 'perdida') {
+        camposProducto.style.display = 'block';
+        // Solo hacer obligatorio el producto para reportes de pérdida
+        document.getElementById('productoReporte').required = tipo === 'perdida';
+        document.getElementById('cantidadReporte').required = tipo === 'perdida';
+        divCantidad.style.display = tipo === 'perdida' ? 'block' : 'none';
+    } else {
+        camposProducto.style.display = 'none';
+        document.getElementById('productoReporte').required = false;
+        document.getElementById('cantidadReporte').required = false;
+    }
+}
+
+function mostrarCamposProductoEdit() {
+    const tipo = document.getElementById('editTipoReporte').value;
+    const camposProducto = document.getElementById('camposProductoEdit');
+    const divCantidad = document.getElementById('divEditCantidadReporte');
+    
+    if (tipo === 'producto' || tipo === 'perdida') {
+        camposProducto.style.display = 'block';
+        // Solo hacer obligatorio el producto para reportes de pérdida
+        document.getElementById('editProductoReporte').required = tipo === 'perdida';
+        document.getElementById('editCantidadReporte').required = tipo === 'perdida';
+        divCantidad.style.display = tipo === 'perdida' ? 'block' : 'none';
+    } else {
+        camposProducto.style.display = 'none';
+        document.getElementById('editProductoReporte').required = false;
+        document.getElementById('editCantidadReporte').required = false;
+    }
+}
+
+// Funciones auxiliares para SweetAlert2
+function showSwalSuccess(message) {
+    Swal.fire({
+        icon: 'success',
+        title: 'Éxito',
+        text: message,
+        timer: 1500,
+        showConfirmButton: false
+    });
+}
+
+function showSwalError(message) {
+    Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: message,
+        timer: 3000,
+        showConfirmButton: true
+    });
+}
+
+// Crear nuevo reporte
+document.getElementById('formCrearReporte').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const tipo = document.getElementById('tipoReporte').value;
+    const nombreReporte = document.getElementById('nombreReporte').value.trim();
+    const descripcionReporte = document.getElementById('descripcionReporte').value.trim();
+    
+    // Validaciones del lado del cliente
+    if (!nombreReporte) {
+        showSwalError('El nombre del reporte no puede estar vacío o solo contener espacios.');
+        return;
+    }
+    
+    if (!descripcionReporte) {
+        showSwalError('La descripción del reporte es obligatoria.');
+        return;
+    }
+    
+    if (!tipo) {
+        showSwalError('Debe seleccionar un tipo de reporte.');
+        return;
+    }
+    
+    const formData = {
+        action: 'crear_reporte',
+        nombre_reporte: nombreReporte,
+        descripcion: descripcionReporte,
+        tipo: tipo,
+        producto_id: document.getElementById('productoReporte').value || null,
+        cantidad: tipo === 'perdida' ? document.getElementById('cantidadReporte').value || null : null
+    };
+    
+    // Validaciones específicas para productos
+    if (formData.tipo === 'perdida' && !formData.producto_id) {
+        showSwalError('Para reportes de pérdida, debe seleccionar un producto.');
+        return;
+    }
+    
+    if (formData.tipo === 'perdida' && !formData.cantidad) {
+        showSwalError('Para reportes de pérdida, debe especificar la cantidad.');
+        return;
+    }
+    
+    fetch('{% url "gestionar_reportes" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => { throw err; });
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            showSwalSuccess(data.message);
+            // Limpiar formulario
+            document.getElementById('formCrearReporte').reset();
+            document.getElementById('camposProducto').style.display = 'none';
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showSwalError(data.message || 'Error al crear el reporte');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showSwalError(error.message || 'Ocurrió un error al crear el reporte.');
+    });
+});
+
+// Ver detalle del reporte
+function verDetalleReporte(reporteId) {
+    fetch(`/reportes/obtener-detalle/${reporteId}/`)
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => { throw err; });
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            const reporte = data.reporte;
+            let html = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><strong>Nombre:</strong></h6>
+                        <p>${reporte.nombre_reporte}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><strong>Tipo:</strong></h6>
+                        <p><span class="badge ${
+                            reporte.tipo === 'producto' ? 'bg-info' :
+                            reporte.tipo === 'perdida' ? 'bg-danger' :
+                            reporte.tipo === 'inventario' ? 'bg-warning' : 'bg-secondary'
+                        }">${reporte.tipo.charAt(0).toUpperCase() + reporte.tipo.slice(1)}</span></p>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12">
+                        <h6><strong>Descripción:</strong></h6>
+                        <p>${reporte.descripcion}</p>
+                    </div>
+                </div>
+            `;
+            
+            if (reporte.productos && reporte.productos.length > 0) {
+                html += `
+                    <div class="row">
+                        <div class="col-12">
+                            <h6><strong>Productos Afectados:</strong></h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th>Cantidad</th>
+                                            <th>Observaciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                `;
+                
+                reporte.productos.forEach(producto => {
+                    html += `
+                        <tr>
+                            <td>${producto.producto_nombre}</td>
+                            <td>${producto.cantidad}</td>
+                            <td>${producto.observaciones || 'N/A'}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="row">
+                        <div class="col-12">
+                            <p class="text-muted"><em>No hay productos asociados a este reporte.</em></p>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('contenidoDetalleReporte').innerHTML = html;
+            new bootstrap.Modal(document.getElementById('modalDetalleReporte')).show();
+        } else {
+            showSwalError(data.message || 'No se pudo cargar el detalle del reporte.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showSwalError(error.message || 'Ocurrió un error al cargar el detalle.');
+    });
+}
+
+// Editar reporte
+function editarReporte(reporteId) {
+    fetch(`{% url "gestionar_reportes" %}?action=get&id=${reporteId}`)
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => { throw err; });
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            const reporte = data.reporte;
+            document.getElementById('editReporteId').value = reporte.id;
+            document.getElementById('editNombreReporte').value = reporte.nombre;
+            document.getElementById('editDescripcionReporte').value = reporte.descripcion;
+            document.getElementById('editTipoReporte').value = reporte.tipo;
+            
+            mostrarCamposProductoEdit();
+            
+            if (data.productos && data.productos.length > 0) {
+                document.getElementById('editProductoReporte').value = data.productos[0].id;
+                document.getElementById('editCantidadReporte').value = data.productos[0].cantidad;
+            }
+            
+            new bootstrap.Modal(document.getElementById('modalEditarReporte')).show();
+        } else {
+            showSwalError(data.message || 'No se pudo cargar el reporte para editar.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showSwalError(error.message || 'Ocurrió un error al cargar el reporte.');
+    });
+}
+
+// Confirmar edición del reporte
+function confirmarEditarReporte() {
+    const nombreReporte = document.getElementById('editNombreReporte').value.trim();
+    const descripcionReporte = document.getElementById('editDescripcionReporte').value.trim();
+    const tipo = document.getElementById('editTipoReporte').value;
+    
+    // Validaciones del lado del cliente
+    if (!nombreReporte) {
+        showSwalError('El nombre del reporte no puede estar vacío o solo contener espacios.');
+        return;
+    }
+    
+    if (!descripcionReporte) {
+        showSwalError('La descripción del reporte es obligatoria.');
+        return;
+    }
+    
+    const formData = {
+        action: 'editar_reporte',
+        reporte_id: document.getElementById('editReporteId').value,
+        nombre_reporte: nombreReporte,
+        descripcion: descripcionReporte,
+        tipo: tipo,
+        producto_id: document.getElementById('editProductoReporte').value || null,
+        cantidad: tipo === 'perdida' ? document.getElementById('editCantidadReporte').value || null : null
+    };
+    
+    // Validaciones específicas para productos
+    if (formData.tipo === 'perdida' && !formData.producto_id) {
+        showSwalError('Para reportes de pérdida, debe seleccionar un producto.');
+        return;
+    }
+    
+    if (formData.tipo === 'perdida' && !formData.cantidad) {
+        showSwalError('Para reportes de pérdida, debe especificar la cantidad.');
+        return;
+    }
+    
+    fetch('{% url "gestionar_reportes" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => { throw err; });
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            showSwalSuccess(data.message);
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showSwalError(data.message || 'Error al actualizar el reporte');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showSwalError(error.message || 'Ocurrió un error al actualizar el reporte.');
+    });
+}
+
+// Toggle estado del reporte
+function toggleEstadoReporte(reporteId, estadoActual) {
+    const nuevoEstado = !estadoActual;
+    const accion = nuevoEstado ? 'activar' : 'desactivar';
+    
+    Swal.fire({
+        title: `¿${accion.charAt(0).toUpperCase() + accion.slice(1)} reporte?`,
+        text: `¿Está seguro que desea ${accion} este reporte?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, ' + accion,
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('{% url "gestionar_reportes" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    action: 'toggle_activo',
+                    reporte_id: reporteId
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    showSwalSuccess(data.message);
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showSwalError(data.message || 'Error al cambiar el estado');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showSwalError(error.message || 'Ocurrió un error al cambiar el estado.');
+            });
+        }
+    });
+}
+
+// Eliminar reporte
+function eliminarReporte(reporteId) {
+    Swal.fire({
+        title: '¿Eliminar reporte?',
+        text: 'Esta acción no se puede deshacer.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#d33'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('{% url "gestionar_reportes" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    action: 'eliminar_reporte',
+                    reporte_id: reporteId
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    showSwalSuccess(data.message);
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showSwalError(data.message || 'Error al eliminar el reporte');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showSwalError(error.message || 'Ocurrió un error al eliminar el reporte.');
+            });
+        }
+    });
+}
+</script>
+{% endblock %}
