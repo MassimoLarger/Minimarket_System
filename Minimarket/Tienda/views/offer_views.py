@@ -34,8 +34,14 @@ def gestionar_ofertas(request):
                     descuento_porcentaje = int(request.POST.get('descuento_porcentaje', 0))
                     activa = request.POST.get('activa') == 'on'
                     
-                    if descuento_porcentaje <= 0 or descuento_porcentaje > 100:
-                        raise ValueError('El descuento debe estar entre 1 y 100%.')
+                    if descuento_porcentaje <= 0 or descuento_porcentaje > 99:
+                        raise ValueError('El descuento debe estar entre 1 y 99%.')
+                    
+                    # Validar días antes del vencimiento para ofertas de vencimiento
+                    if tipo_oferta == 'vencimiento':
+                        dias_antes_vencimiento = int(request.POST.get('dias_antes_vencimiento', 3))
+                        if dias_antes_vencimiento <= 0 or dias_antes_vencimiento > 15:
+                             raise ValueError('Los días antes del vencimiento deben estar entre 1 y 15.')
                     
                     if fecha_fin and fecha_inicio >= fecha_fin:
                         raise ValueError('La fecha de fin debe ser posterior a la fecha de inicio.')
@@ -56,8 +62,8 @@ def gestionar_ofertas(request):
                         
                     elif tipo_oferta == 'vencimiento':
                         dias_antes_vencimiento = int(request.POST.get('dias_antes_vencimiento', 3))
-                        if dias_antes_vencimiento <= 0:
-                            raise ValueError('Los días antes del vencimiento deben ser mayor a 0.')
+                        if dias_antes_vencimiento <= 0 or dias_antes_vencimiento > 15:
+                             raise ValueError('Los días antes del vencimiento deben estar entre 1 y 15.')
                         
                         oferta = OfertaVencimiento.objects.create(
                             nombre=nombre,
@@ -84,8 +90,8 @@ def gestionar_ofertas(request):
                     descuento_porcentaje = int(request.POST.get('descuento_porcentaje', 0))
                     activa = request.POST.get('activa') == 'on'
                     
-                    if descuento_porcentaje <= 0 or descuento_porcentaje > 100:
-                        raise ValueError('El descuento debe estar entre 1 y 100%.')
+                    if descuento_porcentaje <= 0 or descuento_porcentaje > 99:
+                        raise ValueError('El descuento debe estar entre 1 y 99%.')
                     
                     if fecha_fin and fecha_inicio >= fecha_fin:
                         raise ValueError('La fecha de fin debe ser posterior a la fecha de inicio.')
@@ -107,8 +113,8 @@ def gestionar_ofertas(request):
                     elif tipo_oferta == 'vencimiento':
                         oferta = get_object_or_404(OfertaVencimiento, id=oferta_id)
                         dias_antes_vencimiento = int(request.POST.get('dias_antes_vencimiento', 3))
-                        if dias_antes_vencimiento <= 0:
-                            raise ValueError('Los días antes del vencimiento deben ser mayor a 0.')
+                        if dias_antes_vencimiento <= 0 or dias_antes_vencimiento > 15:
+                             raise ValueError('Los días antes del vencimiento deben estar entre 1 y 15.')
                         
                         oferta.nombre = nombre
                         oferta.fecha_inicio = fecha_inicio

@@ -55,6 +55,12 @@ def gestionar_alertas(request):
                     if not nombre or not tipo or not mensaje:
                         raise ValueError("Todos los campos obligatorios deben estar completos")
                     
+                    # Validar campos obligatorios según el tipo
+                    if tipo == 'stock_bajo' and not umbral_stock and not alerta.umbral_stock:
+                        raise ValueError("El umbral de stock es obligatorio para alertas de stock bajo")
+                    if tipo in ['proximo_vencer', 'oferta_terminando'] and not dias_anticipacion and not alerta.dias_anticipacion:
+                        raise ValueError("Los días de anticipación son obligatorios para este tipo de alerta")
+                    
                     # Crear la alerta
                     alerta = Alert(
                         nombre=nombre,
@@ -64,9 +70,21 @@ def gestionar_alertas(request):
                     
                     # Asignar campos específicos según el tipo
                     if umbral_stock:
-                        alerta.umbral_stock = int(umbral_stock)
+                        try:
+                            alerta.umbral_stock = int(umbral_stock)
+                        except ValueError:
+                            raise ValueError("El umbral de stock debe ser un número válido")
                     if dias_anticipacion:
-                        alerta.dias_anticipacion = int(dias_anticipacion)
+                         try:
+                             dias_anticipacion_int = int(dias_anticipacion)
+                             if dias_anticipacion_int <= 0 or dias_anticipacion_int > 365:
+                                 raise ValueError("Los días de anticipación deben estar entre 1 y 365")
+                             alerta.dias_anticipacion = dias_anticipacion_int
+                         except ValueError as e:
+                             if "invalid literal" in str(e):
+                                 raise ValueError("Los días de anticipación deben ser un número válido")
+                             else:
+                                 raise e
                     
                     alerta.save()
                     
@@ -143,7 +161,22 @@ def gestionar_alertas(request):
                     tipo = request.POST.get('tipo')
                     mensaje = request.POST.get('mensaje', '').strip()
                     umbral_stock = request.POST.get('umbral_stock')
-                    dias_anticipacion = request.POST.get('dias_anticipacion')
+                    
+                    # Manejar días de anticipación - buscar en los campos específicos
+                    dias_anticipacion = None
+                    
+                    # Buscar en el campo de vencimiento
+                    dias_venc = request.POST.get('dias_anticipacion_venc', '').strip()
+                    if dias_venc:
+                        dias_anticipacion = dias_venc
+                    
+                    # Buscar en el campo de oferta si no se encontró en vencimiento
+                    if not dias_anticipacion:
+                        dias_oferta = request.POST.get('dias_anticipacion_oferta', '').strip()
+                        if dias_oferta:
+                            dias_anticipacion = dias_oferta
+                    else:
+                        dias_oferta = request.POST.get('dias_anticipacion_oferta', '').strip()
                     
                     if not nombre or not tipo or not mensaje:
                         raise ValueError("Todos los campos obligatorios deben estar completos")
@@ -153,15 +186,37 @@ def gestionar_alertas(request):
                     alerta.tipo = tipo
                     alerta.mensaje = mensaje
                     
-                    # Limpiar campos específicos primero
-                    alerta.umbral_stock = None
-                    alerta.dias_anticipacion = None
+                    # Asignar campos específicos según el tipo ANTES de limpiar
+                    if tipo == 'stock_bajo':
+                        if umbral_stock:
+                            try:
+                                alerta.umbral_stock = int(umbral_stock)
+                            except ValueError:
+                                raise ValueError("El umbral de stock debe ser un número válido")
+                        # Validar que tenga umbral_stock (del formulario o existente)
+                        if not umbral_stock and not alerta.umbral_stock:
+                            raise ValueError("El umbral de stock es obligatorio para alertas de stock bajo")
+                    elif tipo in ['proximo_vencer', 'oferta_terminando']:
+                        if dias_anticipacion:
+                            try:
+                                dias_anticipacion_int = int(dias_anticipacion)
+                                if dias_anticipacion_int <= 0 or dias_anticipacion_int > 365:
+                                    raise ValueError("Los días de anticipación deben estar entre 1 y 365")
+                                alerta.dias_anticipacion = dias_anticipacion_int
+                            except ValueError as e:
+                                if "invalid literal" in str(e):
+                                    raise ValueError("Los días de anticipación deben ser un número válido")
+                                else:
+                                    raise e
+                        # Validar que tenga dias_anticipacion (del formulario o existente)
+                        if not dias_anticipacion and not alerta.dias_anticipacion:
+                            raise ValueError("Los días de anticipación son obligatorios para este tipo de alerta")
                     
-                    # Asignar campos específicos según el tipo
-                    if tipo == 'stock_bajo' and umbral_stock:
-                        alerta.umbral_stock = int(umbral_stock)
-                    elif tipo in ['proximo_vencer', 'oferta_terminando'] and dias_anticipacion:
-                        alerta.dias_anticipacion = int(dias_anticipacion)
+                    # Limpiar campos específicos que no corresponden al tipo actual DESPUÉS de asignar
+                    if tipo != 'stock_bajo':
+                        alerta.umbral_stock = None
+                    if tipo not in ['proximo_vencer', 'oferta_terminando']:
+                        alerta.dias_anticipacion = None
                     
                     alerta.save()
                     
@@ -174,12 +229,33 @@ def gestionar_alertas(request):
                                 'nombre': alerta.nombre,
                                 'tipo': alerta.get_tipo_display(),
                                 'estado': alerta.get_estado_display(),
-                                'fecha_creacion': alerta.fecha_creacion.strftime('%d/%m/%Y %H:%M')
+                                'fecha_creacion': alerta.fecha_creacion.strftime('%d/%m/%Y %H:%M'),
+                                'umbral_stock': alerta.umbral_stock,
+                                'dias_anticipacion': alerta.dias_anticipacion
                             }
                         })
                     else:
                         messages.success(request, 'Alerta editada exitosamente')
                         return redirect('gestionar_alertas')
+            
+            elif action == 'obtener_alerta':
+                # Obtener datos de una alerta específica para edición
+                alerta_id = request.POST.get('alerta_id')
+                try:
+                    alerta = Alert.objects.get(id=alerta_id)
+                    return JsonResponse({
+                        'success': True,
+                        'alerta': {
+                            'id': alerta.id,
+                            'nombre': alerta.nombre,
+                            'tipo': alerta.tipo,
+                            'mensaje': alerta.mensaje,
+                            'umbral_stock': alerta.umbral_stock,
+                            'dias_anticipacion': alerta.dias_anticipacion
+                        }
+                    })
+                except Alert.DoesNotExist:
+                    return JsonResponse({'success': False, 'message': 'Alerta no encontrada'})
             
             elif action == 'verificar_alertas':
                 # Verificar todas las alertas activas
@@ -233,17 +309,12 @@ def verificar_alertas_automaticas():
     alertas = Alert.objects.filter(activa=True, estado='activa')
     
     for alerta in alertas:
-        # Evitar procesar múltiples alertas del mismo tipo
-        if alerta.tipo in alertas_procesadas:
-            continue
-            
         productos_afectados = []
         
         if alerta.tipo == 'stock_bajo':
-            # Verificar todos los productos con stock bajo usando el umbral más bajo de todas las alertas activas de este tipo
-            alertas_stock = alertas.filter(tipo='stock_bajo')
-            umbral_minimo = min([a.umbral_stock if a.umbral_stock else 10 for a in alertas_stock])
-            productos_bajo_stock = Producto.objects.filter(stock__lte=umbral_minimo)
+            # Verificar productos con stock bajo usando el umbral específico de esta alerta
+            umbral = alerta.umbral_stock if alerta.umbral_stock else 10
+            productos_bajo_stock = Producto.objects.filter(stock__lte=umbral)
             
             if productos_bajo_stock.exists():
                 detalles_productos = []
@@ -264,7 +335,7 @@ def verificar_alertas_automaticas():
                     
                     detalles_productos.append(detalle)
                 
-                mensaje_detallado = f"{alerta.mensaje}\n\nProductos afectados:\n" + "\n".join(detalles_productos)
+                mensaje_detallado = f"{alerta.mensaje}\n\nProductos afectados (umbral ≤ {umbral}):\n" + "\n".join(detalles_productos)
                 if productos_bajo_stock.count() > 5:
                     mensaje_detallado += f"\n\nY {productos_bajo_stock.count() - 5} productos más con stock bajo."
                 
@@ -276,8 +347,6 @@ def verificar_alertas_automaticas():
                     'fecha_creacion': alerta.fecha_creacion.strftime('%d/%m/%Y %H:%M'),
                     'productos_count': productos_bajo_stock.count()
                 })
-                
-                alertas_procesadas.add(alerta.tipo)
         
         elif alerta.tipo == 'proximo_vencer':
             # Verificar productos próximos a vencer usando el mayor número de días de todas las alertas activas de este tipo

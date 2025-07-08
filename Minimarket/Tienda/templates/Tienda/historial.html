@@ -13,6 +13,8 @@
                                 <i class="fas fa-filter me-1"></i>Filtrar
                             </button>
                             <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                                <li><a class="dropdown-item" href="{% url 'historial' %}">Ver todos</a></li>
+                                <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="?dia=hoy">Hoy</a></li>
                                 <li><a class="dropdown-item" href="?dia=ayer">Ayer</a></li>
                                 <li><a class="dropdown-item" href="?dia=semana">Última semana</a></li>
@@ -130,15 +132,10 @@
                     </div>
                     {% endif %}
                     
-                    <div class="d-flex justify-content-between mt-3">
+                    <div class="d-flex justify-content-start mt-3">
                         <a href="{% url 'home' %}" class="btn btn-secondary">
                             <i class="fas fa-arrow-left me-2"></i>Volver al Inicio
                         </a>
-                        <div class="btn-group">
-                            <button class="btn btn-outline-primary" disabled>
-                                <i class="fas fa-chart-bar me-2"></i>Generar Reporte
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>

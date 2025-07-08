@@ -59,14 +59,42 @@ def crear_seccion(request):
     try:
         data = json.loads(request.body)
         
+        # Validar dimensiones del mapa de bodega
+        ancho = data.get('ancho', 120)
+        alto = data.get('alto', 80)
+        
+        if ancho > 800:
+            return JsonResponse({
+                'success': False, 
+                'error': 'El ancho no puede exceder 800px (tamaño máximo del mapa de bodega)'
+            })
+        
+        if alto > 580:
+            return JsonResponse({
+                'success': False, 
+                'error': 'El alto no puede exceder 580px (tamaño máximo del mapa de bodega)'
+            })
+        
+        if ancho <= 0:
+            return JsonResponse({
+                'success': False, 
+                'error': 'El ancho debe ser mayor a 0'
+            })
+        
+        if alto <= 0:
+            return JsonResponse({
+                'success': False, 
+                'error': 'El alto debe ser mayor a 0'
+            })
+        
         seccion = SeccionBodega.objects.create(
             nombre=data.get('nombre', 'Nueva Sección'),
             descripcion=data.get('descripcion', ''),
             tipo_forma='rectangulo',  # Todas las secciones son auto-ajustables
             posicion_x=data.get('posicion_x', 50),
             posicion_y=data.get('posicion_y', 50),
-            ancho=data.get('ancho', 120),
-            alto=data.get('alto', 80),
+            ancho=ancho,
+            alto=alto,
             color=data.get('color', '#3498db')
         )
         
@@ -122,12 +150,36 @@ def obtener_secciones(request):
 def actualizar_seccion(request, seccion_id):
     """Actualizar una sección de bodega existente"""
     try:
-        print(f"[DEBUG] Actualizando sección {seccion_id}")
         seccion = get_object_or_404(SeccionBodega, id=seccion_id)
         data = json.loads(request.body)
         
-        print(f"[DEBUG] Datos recibidos: {data}")
-        print(f"[DEBUG] Valores antes del cambio - ancho: {seccion.ancho}, alto: {seccion.alto}")
+        # Validar dimensiones del mapa de bodega
+        ancho = data.get('ancho', seccion.ancho)
+        alto = data.get('alto', seccion.alto)
+        
+        if ancho > 800:
+            return JsonResponse({
+                'success': False, 
+                'error': 'El ancho no puede exceder 800px (tamaño máximo del mapa de bodega)'
+            })
+        
+        if alto > 580:
+            return JsonResponse({
+                'success': False, 
+                'error': 'El alto no puede exceder 580px (tamaño máximo del mapa de bodega)'
+            })
+        
+        if ancho <= 0:
+            return JsonResponse({
+                'success': False, 
+                'error': 'El ancho debe ser mayor a 0'
+            })
+        
+        if alto <= 0:
+            return JsonResponse({
+                'success': False, 
+                'error': 'El alto debe ser mayor a 0'
+            })
         
         # Guardar valores anteriores para comparación
         valores_anteriores = {
@@ -143,20 +195,16 @@ def actualizar_seccion(request, seccion_id):
         seccion.tipo_forma = data.get('tipo_forma', seccion.tipo_forma)
         seccion.posicion_x = data.get('posicion_x', seccion.posicion_x)
         seccion.posicion_y = data.get('posicion_y', seccion.posicion_y)
-        seccion.ancho = data.get('ancho', seccion.ancho)
-        seccion.alto = data.get('alto', seccion.alto)
+        seccion.ancho = ancho
+        seccion.alto = alto
         seccion.color = data.get('color', seccion.color)
-        
-        print(f"[DEBUG] Valores después del cambio - ancho: {seccion.ancho}, alto: {seccion.alto}")
         
         # Forzar el guardado con update_fields específicos
         seccion.save(update_fields=['nombre', 'descripcion', 'tipo_forma', 'posicion_x', 'posicion_y', 'ancho', 'alto', 'color'])
-        print(f"[DEBUG] Sección guardada exitosamente")
         
         # Verificar que los cambios se guardaron
         seccion.refresh_from_db()
-        print(f"[DEBUG] Valores después de refresh_from_db - ancho: {seccion.ancho}, alto: {seccion.alto}")
-        
+
         # Verificar si realmente cambió algo
         cambios_detectados = {
             'nombre': valores_anteriores['nombre'] != seccion.nombre,
@@ -165,7 +213,6 @@ def actualizar_seccion(request, seccion_id):
             'posicion_x': valores_anteriores['posicion_x'] != seccion.posicion_x,
             'posicion_y': valores_anteriores['posicion_y'] != seccion.posicion_y
         }
-        print(f"[DEBUG] Cambios detectados: {cambios_detectados}")
         
         return JsonResponse({
             'success': True,
@@ -193,7 +240,6 @@ def actualizar_seccion(request, seccion_id):
             }
         })
     except Exception as e:
-        print(f"[DEBUG] Error actualizando sección: {str(e)}")
         return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required

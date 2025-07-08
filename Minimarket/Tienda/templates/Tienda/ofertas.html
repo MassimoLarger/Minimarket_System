@@ -197,6 +197,13 @@
             </div>
         </div>
     </div>
+    
+    <!-- Botón para volver atrás -->
+    <div class="d-flex justify-content-between mt-3">
+        <a href="{% url 'home' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Volver al Inicio
+        </a>
+    </div>
 </div>
 
     <!-- Modal para agregar/editar oferta -->
@@ -245,7 +252,7 @@
                                         <div class="mb-3">
                                             <label for="descuento_porcentaje" class="form-label fw-bold">Descuento (%) <span class="text-danger">*</span></label>
                                             <div class="input-group">
-                                                <input type="number" class="form-control" id="descuento_porcentaje" name="descuento_porcentaje" min="1" max="100" placeholder="20" required>
+                                                <input type="number" class="form-control" id="descuento_porcentaje" name="descuento_porcentaje" min="1" max="99" placeholder="20" required>
                                                 <span class="input-group-text">%</span>
                                             </div>
                                         </div>
@@ -297,7 +304,7 @@
                                 <div class="mb-3">
                                     <label for="dias_antes_vencimiento" class="form-label fw-bold">Días antes del vencimiento <span class="text-danger">*</span></label>
                                     <div class="input-group">
-                                        <input type="number" class="form-control" id="dias_antes_vencimiento" name="dias_antes_vencimiento" value="3" min="1" placeholder="7">
+                                        <input type="number" class="form-control" id="dias_antes_vencimiento" name="dias_antes_vencimiento" value="3" min="1" max="15" placeholder="7">
                                         <span class="input-group-text">días</span>
                                     </div>
                                     <div class="form-text">

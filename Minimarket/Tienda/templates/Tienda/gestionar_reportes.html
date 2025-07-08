@@ -41,18 +41,43 @@
                         <!-- Campos para productos (solo visible cuando tipo es 'producto' o 'perdida') -->
                         <div id="camposProducto" style="display: none;">
                             <div class="mb-3">
-                                <label for="productoReporte" class="form-label">Producto Afectado</label>
-                                <select class="form-select" id="productoReporte" name="productoReporte">
-                                    <option value="">Seleccionar producto...</option>
-                                    {% for producto in productos %}
-                                    <option value="{{ producto.id }}" data-stock="{{ producto.stock }}">{{ producto.nombre }} (Stock: {{ producto.stock }})</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="mb-3" id="divCantidadReporte">
-                                <label for="cantidadReporte" class="form-label">Cantidad</label>
-                                <input type="number" class="form-control" id="cantidadReporte" name="cantidadReporte" min="1">
-                                <small class="text-muted">Para pérdidas, esta cantidad se descontará del stock</small>
+                                <label class="form-label">Productos Afectados</label>
+                                <div id="productosContainer">
+                                    <div class="producto-item border rounded p-3 mb-2">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <label class="form-label">Producto</label>
+                                                <select class="form-select producto-select" name="productos[]">
+                                                    <option value="">Seleccionar producto...</option>
+                                                    {% for producto in productos %}
+                                                    <option value="{{ producto.id }}" data-stock="{{ producto.stock }}">{{ producto.nombre }} (Stock: {{ producto.stock }})</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label">Cantidad</label>
+                                                <input type="number" class="form-control cantidad-input" name="cantidades[]" min="1">
+                                            </div>
+                                            <div class="col-md-2 d-flex align-items-end">
+                                                <button type="button" class="btn btn-danger btn-sm remove-producto" onclick="removeProducto(this)" style="display: none;">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="row mt-2">
+                                            <div class="col-12">
+                                                <label class="form-label">Observaciones (opcional)</label>
+                                                <input type="text" class="form-control" name="observaciones[]" placeholder="Detalles adicionales...">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="addProductoContainer" style="display: none;">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="addProducto()">
+                                        <i class="fas fa-plus me-1"></i> Agregar otro producto
+                                    </button>
+                                </div>
+                                <small class="text-muted">Para pérdidas, estas cantidades se descontarán del stock</small>
                             </div>
                         </div>
                         
@@ -186,17 +211,40 @@
                     <!-- Campos para productos en edición -->
                     <div id="camposProductoEdit" style="display: none;">
                         <div class="mb-3">
-                            <label for="editProductoReporte" class="form-label">Producto Afectado</label>
-                            <select class="form-select" id="editProductoReporte" name="editProductoReporte">
-                                <option value="">Seleccionar producto...</option>
-                                {% for producto in productos %}
-                                <option value="{{ producto.id }}" data-stock="{{ producto.stock }}">{{ producto.nombre }} (Stock: {{ producto.stock }})</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="mb-3" id="divEditCantidadReporte">
-                            <label for="editCantidadReporte" class="form-label">Cantidad</label>
-                            <input type="number" class="form-control" id="editCantidadReporte" name="editCantidadReporte" min="1">
+                            <label class="form-label">Productos Afectados</label>
+                            <div id="productosContainerEdit">
+                                <div class="producto-item-edit mb-3 p-3 border rounded">
+                                    <div class="row">
+                                        <div class="col-md-5">
+                                            <label class="form-label">Producto</label>
+                                            <select class="form-select producto-select-edit" name="productos_edit[]">
+                                                <option value="">Seleccionar producto...</option>
+                                                {% for producto in productos %}
+                                                <option value="{{ producto.id }}" data-stock="{{ producto.stock }}">{{ producto.nombre }} (Stock: {{ producto.stock }})</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Cantidad</label>
+                                            <input type="number" class="form-control cantidad-input-edit" name="cantidades_edit[]" min="1" placeholder="Cantidad">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Observaciones</label>
+                                            <input type="text" class="form-control observaciones-input-edit" name="observaciones_edit[]" placeholder="Opcional">
+                                        </div>
+                                        <div class="col-md-1 d-flex align-items-end">
+                                            <button type="button" class="btn btn-danger btn-sm remove-producto-edit" onclick="removeProductoEdit(this)" style="display: none;">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="addProductoContainerEdit" style="display: none;">
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="addProductoEdit()">
+                                    <i class="fas fa-plus me-1"></i>Agregar otro producto
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -218,36 +266,184 @@
 function mostrarCamposProducto() {
     const tipo = document.getElementById('tipoReporte').value;
     const camposProducto = document.getElementById('camposProducto');
-    const divCantidad = document.getElementById('divCantidadReporte');
+    const addProductoContainer = document.getElementById('addProductoContainer');
     
     if (tipo === 'producto' || tipo === 'perdida') {
         camposProducto.style.display = 'block';
-        // Solo hacer obligatorio el producto para reportes de pérdida
-        document.getElementById('productoReporte').required = tipo === 'perdida';
-        document.getElementById('cantidadReporte').required = tipo === 'perdida';
-        divCantidad.style.display = tipo === 'perdida' ? 'block' : 'none';
+        // Para reportes de pérdida, permitir múltiples productos
+        if (tipo === 'perdida') {
+            addProductoContainer.style.display = 'block';
+            updateRemoveButtons();
+        } else {
+            addProductoContainer.style.display = 'none';
+            // Para reportes de producto, mantener solo uno
+            const productosContainer = document.getElementById('productosContainer');
+            const items = productosContainer.querySelectorAll('.producto-item');
+            for (let i = 1; i < items.length; i++) {
+                items[i].remove();
+            }
+            updateRemoveButtons();
+        }
+        updateRequiredFields();
     } else {
         camposProducto.style.display = 'none';
-        document.getElementById('productoReporte').required = false;
-        document.getElementById('cantidadReporte').required = false;
+        addProductoContainer.style.display = 'none';
+    }
+}
+
+// Agregar nuevo producto (solo para pérdidas)
+function addProducto() {
+    const container = document.getElementById('productosContainer');
+    const newItem = container.querySelector('.producto-item').cloneNode(true);
+    
+    // Limpiar valores del nuevo item
+    newItem.querySelectorAll('select, input').forEach(field => {
+        field.value = '';
+    });
+    
+    container.appendChild(newItem);
+    updateRemoveButtons();
+    updateRequiredFields();
+}
+
+// Remover producto
+function removeProducto(button) {
+    const container = document.getElementById('productosContainer');
+    if (container.querySelectorAll('.producto-item').length > 1) {
+        button.closest('.producto-item').remove();
+        updateRemoveButtons();
+        updateRequiredFields();
+    }
+}
+
+// Actualizar botones de remover
+function updateRemoveButtons() {
+    const container = document.getElementById('productosContainer');
+    const items = container.querySelectorAll('.producto-item');
+    const tipo = document.getElementById('tipoReporte').value;
+    
+    items.forEach((item, index) => {
+        const removeBtn = item.querySelector('.remove-producto');
+        // Mostrar botón de remover solo si hay más de un item y es reporte de pérdida
+        if (items.length > 1 && tipo === 'perdida') {
+            removeBtn.style.display = 'block';
+        } else {
+            removeBtn.style.display = 'none';
+        }
+    });
+}
+
+// Actualizar campos requeridos
+function updateRequiredFields() {
+    const tipo = document.getElementById('tipoReporte').value;
+    const container = document.getElementById('productosContainer');
+    
+    if (tipo === 'producto' || tipo === 'perdida') {
+        container.querySelectorAll('.producto-select').forEach(select => {
+            select.required = true;
+        });
+        container.querySelectorAll('.cantidad-input').forEach(input => {
+            input.required = true;
+        });
+    } else {
+        container.querySelectorAll('.producto-select').forEach(select => {
+            select.required = false;
+        });
+        container.querySelectorAll('.cantidad-input').forEach(input => {
+            input.required = false;
+        });
     }
 }
 
 function mostrarCamposProductoEdit() {
     const tipo = document.getElementById('editTipoReporte').value;
     const camposProducto = document.getElementById('camposProductoEdit');
-    const divCantidad = document.getElementById('divEditCantidadReporte');
+    const addProductoContainer = document.getElementById('addProductoContainerEdit');
     
     if (tipo === 'producto' || tipo === 'perdida') {
         camposProducto.style.display = 'block';
-        // Solo hacer obligatorio el producto para reportes de pérdida
-        document.getElementById('editProductoReporte').required = tipo === 'perdida';
-        document.getElementById('editCantidadReporte').required = tipo === 'perdida';
-        divCantidad.style.display = tipo === 'perdida' ? 'block' : 'none';
+        // Para reportes de pérdida, permitir múltiples productos
+        if (tipo === 'perdida') {
+            addProductoContainer.style.display = 'block';
+            updateRemoveButtonsEdit();
+        } else {
+            addProductoContainer.style.display = 'none';
+            // Para reportes de producto, mantener solo uno
+            const productosContainer = document.getElementById('productosContainerEdit');
+            const items = productosContainer.querySelectorAll('.producto-item-edit');
+            for (let i = 1; i < items.length; i++) {
+                items[i].remove();
+            }
+            updateRemoveButtonsEdit();
+        }
+        updateRequiredFieldsEdit();
     } else {
         camposProducto.style.display = 'none';
-        document.getElementById('editProductoReporte').required = false;
-        document.getElementById('editCantidadReporte').required = false;
+        addProductoContainer.style.display = 'none';
+    }
+}
+
+// Agregar nuevo producto en edición (solo para pérdidas)
+function addProductoEdit() {
+    const container = document.getElementById('productosContainerEdit');
+    const newItem = container.querySelector('.producto-item-edit').cloneNode(true);
+    
+    // Limpiar valores del nuevo item
+    newItem.querySelectorAll('select, input').forEach(field => {
+        field.value = '';
+    });
+    
+    container.appendChild(newItem);
+    updateRemoveButtonsEdit();
+    updateRequiredFieldsEdit();
+}
+
+// Remover producto en edición
+function removeProductoEdit(button) {
+    const container = document.getElementById('productosContainerEdit');
+    if (container.querySelectorAll('.producto-item-edit').length > 1) {
+        button.closest('.producto-item-edit').remove();
+        updateRemoveButtonsEdit();
+        updateRequiredFieldsEdit();
+    }
+}
+
+// Actualizar botones de remover en edición
+function updateRemoveButtonsEdit() {
+    const container = document.getElementById('productosContainerEdit');
+    const items = container.querySelectorAll('.producto-item-edit');
+    const tipo = document.getElementById('editTipoReporte').value;
+    
+    items.forEach((item, index) => {
+        const removeBtn = item.querySelector('.remove-producto-edit');
+        // Mostrar botón de remover solo si hay más de un item y es reporte de pérdida
+        if (items.length > 1 && tipo === 'perdida') {
+            removeBtn.style.display = 'block';
+        } else {
+            removeBtn.style.display = 'none';
+        }
+    });
+}
+
+// Actualizar campos requeridos en edición
+function updateRequiredFieldsEdit() {
+    const tipo = document.getElementById('editTipoReporte').value;
+    const container = document.getElementById('productosContainerEdit');
+    
+    if (tipo === 'producto' || tipo === 'perdida') {
+        container.querySelectorAll('.producto-select-edit').forEach(select => {
+            select.required = true;
+        });
+        container.querySelectorAll('.cantidad-input-edit').forEach(input => {
+            input.required = true;
+        });
+    } else {
+        container.querySelectorAll('.producto-select-edit').forEach(select => {
+            select.required = false;
+        });
+        container.querySelectorAll('.cantidad-input-edit').forEach(input => {
+            input.required = false;
+        });
     }
 }
 
@@ -301,19 +497,50 @@ document.getElementById('formCrearReporte').addEventListener('submit', function(
         nombre_reporte: nombreReporte,
         descripcion: descripcionReporte,
         tipo: tipo,
-        producto_id: document.getElementById('productoReporte').value || null,
-        cantidad: tipo === 'perdida' ? document.getElementById('cantidadReporte').value || null : null
+        productos: []
     };
     
-    // Validaciones específicas para productos
-    if (formData.tipo === 'perdida' && !formData.producto_id) {
-        showSwalError('Para reportes de pérdida, debe seleccionar un producto.');
-        return;
-    }
-    
-    if (formData.tipo === 'perdida' && !formData.cantidad) {
-        showSwalError('Para reportes de pérdida, debe especificar la cantidad.');
-        return;
+    // Recopilar datos de productos
+    if (tipo === 'perdida' || tipo === 'producto') {
+        const container = document.getElementById('productosContainer');
+        const items = container.querySelectorAll('.producto-item');
+        
+        for (let item of items) {
+            const productoSelect = item.querySelector('.producto-select');
+            const cantidadInput = item.querySelector('.cantidad-input');
+            const observacionesInput = item.querySelector('input[name="observaciones[]"]');
+            
+            const productoId = productoSelect.value;
+            const cantidad = cantidadInput.value;
+            const observaciones = observacionesInput.value;
+            
+            if (productoId && cantidad) {
+                if (parseInt(cantidad) <= 0) {
+                    showSwalError('Todas las cantidades deben ser números mayores a 0.');
+                    return;
+                }
+                
+                formData.productos.push({
+                    producto_id: productoId,
+                    cantidad: cantidad,
+                    observaciones: observaciones || ''
+                });
+            }
+        }
+        
+        // Validaciones
+        if (formData.productos.length === 0) {
+            showSwalError(`Para reportes de ${tipo}, debe agregar al menos un producto con cantidad.`);
+            return;
+        }
+        
+        // Verificar productos duplicados
+        const productosIds = formData.productos.map(p => p.producto_id);
+        const duplicados = productosIds.filter((id, index) => productosIds.indexOf(id) !== index);
+        if (duplicados.length > 0) {
+            showSwalError('No puede agregar el mismo producto múltiples veces.');
+            return;
+        }
     }
     
     fetch('{% url "gestionar_reportes" %}', {
@@ -458,10 +685,93 @@ function editarReporte(reporteId) {
             
             mostrarCamposProductoEdit();
             
+            // Cargar productos existentes
+            const productosContainer = document.getElementById('productosContainerEdit');
+            productosContainer.innerHTML = ''; // Limpiar contenedor
+            
             if (data.productos && data.productos.length > 0) {
-                document.getElementById('editProductoReporte').value = data.productos[0].id;
-                document.getElementById('editCantidadReporte').value = data.productos[0].cantidad;
+                data.productos.forEach((producto, index) => {
+                    if (index === 0) {
+                        // Crear el primer item
+                        const firstItem = document.createElement('div');
+                        firstItem.className = 'producto-item-edit mb-3 p-3 border rounded';
+                        firstItem.innerHTML = `
+                            <div class="row">
+                                <div class="col-md-5">
+                                    <label class="form-label">Producto</label>
+                                    <select class="form-select producto-select-edit" name="productos_edit[]">
+                                        <option value="">Seleccionar producto...</option>
+                                        {% for producto in productos %}
+                                        <option value="{{ producto.id }}" data-stock="{{ producto.stock }}">{{ producto.nombre }} (Stock: {{ producto.stock }})</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Cantidad</label>
+                                    <input type="number" class="form-control cantidad-input-edit" name="cantidades_edit[]" min="1" placeholder="Cantidad">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Observaciones</label>
+                                    <input type="text" class="form-control observaciones-input-edit" name="observaciones_edit[]" placeholder="Opcional">
+                                </div>
+                                <div class="col-md-1 d-flex align-items-end">
+                                    <button type="button" class="btn btn-danger btn-sm remove-producto-edit" onclick="removeProductoEdit(this)" style="display: none;">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                        productosContainer.appendChild(firstItem);
+                        
+                        // Establecer valores
+                        firstItem.querySelector('.producto-select-edit').value = producto.id;
+                        firstItem.querySelector('.cantidad-input-edit').value = producto.cantidad;
+                        firstItem.querySelector('.observaciones-input-edit').value = producto.observaciones || '';
+                    } else {
+                        // Agregar items adicionales
+                        addProductoEdit();
+                        const items = productosContainer.querySelectorAll('.producto-item-edit');
+                        const lastItem = items[items.length - 1];
+                        lastItem.querySelector('.producto-select-edit').value = producto.id;
+                        lastItem.querySelector('.cantidad-input-edit').value = producto.cantidad;
+                        lastItem.querySelector('.observaciones-input-edit').value = producto.observaciones || '';
+                    }
+                });
+            } else {
+                // Si no hay productos, crear un item vacío
+                const emptyItem = document.createElement('div');
+                emptyItem.className = 'producto-item-edit mb-3 p-3 border rounded';
+                emptyItem.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-5">
+                            <label class="form-label">Producto</label>
+                            <select class="form-select producto-select-edit" name="productos_edit[]">
+                                <option value="">Seleccionar producto...</option>
+                                {% for producto in productos %}
+                                <option value="{{ producto.id }}" data-stock="{{ producto.stock }}">{{ producto.nombre }} (Stock: {{ producto.stock }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Cantidad</label>
+                            <input type="number" class="form-control cantidad-input-edit" name="cantidades_edit[]" min="1" placeholder="Cantidad">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Observaciones</label>
+                            <input type="text" class="form-control observaciones-input-edit" name="observaciones_edit[]" placeholder="Opcional">
+                        </div>
+                        <div class="col-md-1 d-flex align-items-end">
+                            <button type="button" class="btn btn-danger btn-sm remove-producto-edit" onclick="removeProductoEdit(this)" style="display: none;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                productosContainer.appendChild(emptyItem);
             }
+            
+            updateRemoveButtonsEdit();
+            updateRequiredFieldsEdit();
             
             new bootstrap.Modal(document.getElementById('modalEditarReporte')).show();
         } else {
@@ -491,26 +801,67 @@ function confirmarEditarReporte() {
         return;
     }
     
+    // Recopilar datos de productos
+    const productos = [];
+    if (tipo === 'perdida' || tipo === 'producto') {
+        const productosContainer = document.getElementById('productosContainerEdit');
+        const productosItems = productosContainer.querySelectorAll('.producto-item-edit');
+        
+        if (productosItems.length === 0) {
+            showSwalError(`Para reportes de ${tipo}, debe agregar al menos un producto.`);
+            return;
+        }
+        
+        const productosIds = [];
+        
+        for (let item of productosItems) {
+            const productoSelect = item.querySelector('.producto-select-edit');
+            const cantidadInput = item.querySelector('.cantidad-input-edit');
+            const observacionesInput = item.querySelector('.observaciones-input-edit');
+            
+            const productoId = productoSelect.value;
+            const cantidad = cantidadInput.value;
+            const observaciones = observacionesInput.value.trim();
+            
+            if (!productoId) {
+                showSwalError('Debe seleccionar un producto en todos los campos.');
+                return;
+            }
+            
+            if (!cantidad || cantidad === '') {
+                showSwalError('Debe especificar la cantidad para todos los productos.');
+                return;
+            }
+            
+            const cantidadNum = parseInt(cantidad);
+            if (isNaN(cantidadNum) || cantidadNum <= 0) {
+                showSwalError('La cantidad debe ser un número mayor a 0.');
+                return;
+            }
+            
+            // Verificar productos duplicados
+            if (productosIds.includes(productoId)) {
+                showSwalError('No puede agregar el mismo producto múltiples veces.');
+                return;
+            }
+            productosIds.push(productoId);
+            
+            productos.push({
+                producto_id: productoId,
+                cantidad: cantidadNum,
+                observaciones: observaciones
+            });
+        }
+    }
+    
     const formData = {
         action: 'editar_reporte',
         reporte_id: document.getElementById('editReporteId').value,
         nombre_reporte: nombreReporte,
         descripcion: descripcionReporte,
         tipo: tipo,
-        producto_id: document.getElementById('editProductoReporte').value || null,
-        cantidad: tipo === 'perdida' ? document.getElementById('editCantidadReporte').value || null : null
+        productos: productos
     };
-    
-    // Validaciones específicas para productos
-    if (formData.tipo === 'perdida' && !formData.producto_id) {
-        showSwalError('Para reportes de pérdida, debe seleccionar un producto.');
-        return;
-    }
-    
-    if (formData.tipo === 'perdida' && !formData.cantidad) {
-        showSwalError('Para reportes de pérdida, debe especificar la cantidad.');
-        return;
-    }
     
     fetch('{% url "gestionar_reportes" %}', {
         method: 'POST',

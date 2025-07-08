@@ -78,20 +78,29 @@ def nueva_venta(request):
         if 'buscar_codigo' in request.POST:
             codigo_barras = request.POST.get('codigo_barras', '').strip()
             try:
-                producto = Producto.objects.get(codigo_barras=codigo_barras)
-                precio_info = calcular_precio_con_ofertas(producto)
-                
-                producto_encontrado = {
-                    'id': producto.id,
-                    'nombre': producto.nombre,
-                    'precio': precio_info['precio_final'],
-                    'precio_original': precio_info['precio_original'],
-                    'stock': producto.stock,
-                    'tiene_descuento': precio_info['tiene_descuento'],
-                    'oferta_aplicada': precio_info['oferta_aplicada']
-                }
+                # Validar que el código de barras sea un número entero válido
+                if not codigo_barras:
+                    error_busqueda = "Debe ingresar un código de barras"
+                elif not codigo_barras.isdigit():
+                    error_busqueda = "El código de barras debe ser un número entero válido"
+                else:
+                    codigo_barras_int = int(codigo_barras)
+                    producto = Producto.objects.get(codigo_barras=codigo_barras_int)
+                    precio_info = calcular_precio_con_ofertas(producto)
+                    
+                    producto_encontrado = {
+                        'id': producto.id,
+                        'nombre': producto.nombre,
+                        'precio': precio_info['precio_final'],
+                        'precio_original': precio_info['precio_original'],
+                        'stock': producto.stock,
+                        'tiene_descuento': precio_info['tiene_descuento'],
+                        'oferta_aplicada': precio_info['oferta_aplicada']
+                    }
             except Producto.DoesNotExist:
                 error_busqueda = "Producto no encontrado"
+            except ValueError:
+                error_busqueda = "El código de barras debe ser un número entero válido"
         
         elif 'agregar_producto' in request.POST:
             producto_id = request.POST.get('producto_id')
@@ -265,9 +274,14 @@ def buscar_producto_api(request):
         codigo_barras = request.GET.get('codigo_barras', '').strip()
         if not codigo_barras:
             return JsonResponse({'error': 'Código de barras no proporcionado'}, status=400)
+        
+        # Validar que el código de barras sea un número entero válido
+        if not codigo_barras.isdigit():
+            return JsonResponse({'error': 'El código de barras debe ser un número entero válido'}, status=400)
 
         try:
-            producto = Producto.objects.get(codigo_barras=codigo_barras)
+            codigo_barras_int = int(codigo_barras)
+            producto = Producto.objects.get(codigo_barras=codigo_barras_int)
             precio_info = calcular_precio_con_ofertas(producto)
     
             return JsonResponse({
@@ -281,6 +295,8 @@ def buscar_producto_api(request):
             })
         except Producto.DoesNotExist:
             return JsonResponse({'error': 'Producto no encontrado'}, status=404)
+        except ValueError:
+            return JsonResponse({'error': 'El código de barras debe ser un número entero válido'}, status=400)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
     return JsonResponse({'error': 'Método no permitido'}, status=405)

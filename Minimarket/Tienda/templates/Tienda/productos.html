@@ -21,10 +21,11 @@
                 </div>
                 <div class="col-md-4">
                     <select id="filtro-producto" class="form-select">
-                        <option value="">Todos los productos</option>
                         <option value="nombre">Ordenar por nombre</option>
                         <option value="codigo">Ordenar por código</option>
                         <option value="stock">Ordenar por stock</option>
+                        <option value="precio">Ordenar por precio</option>
+                        <option value="costo">Ordenar por costo</option>
                     </select>
                 </div>
                 <div class="col-md-4">
@@ -33,6 +34,7 @@
                         {% for categoria in categorias %}
                         <option value="{{ categoria.id }}">{{ categoria.nombre }}</option>
                         {% endfor %}
+                        <option value="sin-categoria">Sin Categoría</option>
                     </select>
                 </div>
             </div>
@@ -69,7 +71,7 @@
                     </thead>
                     <tbody>
                         {% for producto in productos %}
-                        <tr class="fila-producto" data-nombre="{{ producto.nombre|lower }}" data-codigo="{{ producto.codigo_barras }}" data-stock="{{ producto.stock }}" data-precio="{{ producto.precio }}" data-costo="{{ producto.costo }}" data-minimal_stock="{{ producto.minimal_stock }}" data-categoria-id="{{ producto.categoria.id|default:'' }}">
+                        <tr class="fila-producto" data-nombre="{{ producto.nombre|lower }}" data-codigo="{{ producto.codigo_barras }}" data-stock="{{ producto.stock }}" data-precio="{{ producto.precio }}" data-costo="{{ producto.costo }}" data-minimal_stock="{{ producto.minimal_stock }}" data-categoria-id="{% if producto.categoria %}{{ producto.categoria.id }}{% else %}sin-categoria{% endif %}">
                             <td>{{ producto.nombre }}</td>
                             <td>{{ producto.codigo_barras }}</td>
                             <td>{{ producto.stock }}</td>
@@ -78,7 +80,7 @@
                             <td>{{ producto.minimal_stock }}</td>
                             <td>{{ producto.categoria.nombre|default:"N/A" }}</td>
                             <td>
-                                <button class="btn btn-sm btn-warning editar-producto" data-id="{{ producto.id }}" data-nombre="{{ producto.nombre }}" data-codigo="{{ producto.codigo_barras }}" data-stock="{{ producto.stock }}" data-precio="{{ producto.precio }}" data-costo="{{ producto.costo }}" data-minimal_stock="{{ producto.minimal_stock }}" data-categoria-id="{{ producto.categoria.id|default:'' }}"><i class="fas fa-edit"></i></button>
+                                <button class="btn btn-sm btn-warning editar-producto" data-id="{{ producto.id }}" data-nombre="{{ producto.nombre }}" data-codigo="{{ producto.codigo_barras }}" data-stock="{{ producto.stock }}" data-precio="{{ producto.precio }}" data-costo="{{ producto.costo }}" data-minimal_stock="{{ producto.minimal_stock }}" data-categoria-id="{% if producto.categoria %}{{ producto.categoria.id }}{% else %}sin-categoria{% endif %}"><i class="fas fa-edit"></i></button>
                                 <button class="btn btn-sm btn-danger eliminar-producto" data-id="{{ producto.id }}"><i class="fas fa-trash"></i></button>
                             </td>
                         </tr>
@@ -200,10 +202,11 @@
             const filas = document.querySelectorAll('.fila-producto');
             let filasArray = Array.from(filas);
 
+            // Ordenar las filas según el criterio seleccionado
             if (filtro === 'nombre') {
                 filasArray.sort((a, b) => a.dataset.nombre.localeCompare(b.dataset.nombre));
             } else if (filtro === 'codigo') {
-                filasArray.sort((a, b) => a.dataset.codigo.localeCompare(b.dataset.codigo));
+                filasArray.sort((a, b) => parseInt(a.dataset.codigo) - parseInt(b.dataset.codigo));
             } else if (filtro === 'stock') {
                 filasArray.sort((a, b) => parseInt(a.dataset.stock) - parseInt(b.dataset.stock));
             } else if (filtro === 'precio') {
@@ -212,13 +215,17 @@
                 filasArray.sort((a, b) => parseFloat(a.dataset.costo) - parseFloat(b.dataset.costo));
             }
 
+            // Reordenar las filas en el DOM según el ordenamiento
             const tbody = tablaProductos.querySelector('tbody');
-            tbody.innerHTML = '';
+            filasArray.forEach(fila => {
+                tbody.appendChild(fila);
+            });
             
+            // Filtrar mostrando/ocultando filas
             filasArray.forEach(fila => {
                 const nombreProducto = fila.dataset.nombre;
                 const codigoProducto = fila.dataset.codigo;
-                const categoriaProductoId = fila.dataset.categoriaId;
+                const categoriaProductoId = fila.dataset.categoriaId || '';
 
                 const matchTexto = nombreProducto.includes(textoBusqueda) || 
                                    codigoProducto.includes(textoBusqueda) || 
@@ -226,9 +233,11 @@
                 
                 const matchCategoria = (filtroCategoria === '' || categoriaProductoId === filtroCategoria);
 
-                if ((matchTexto && matchCategoria)) {
-                    tbody.appendChild(fila);
+                if (matchTexto && matchCategoria) {
+                    fila.style.display = '';
                     hayResultados = true;
+                } else {
+                    fila.style.display = 'none';
                 }
             });
 
@@ -257,8 +266,8 @@
                     document.getElementById('precio').value = this.dataset.precio;
                     document.getElementById('costo').value = this.dataset.costo;
                     document.getElementById('minimal_stock').value = this.dataset.minimal_stock;
-                    document.getElementById('categoria').value = this.dataset.categoriaId;
-                    document.getElementById('categoria').value = this.dataset.categoriaId;
+                    const categoriaId = this.dataset.categoriaId === 'sin-categoria' ? '' : this.dataset.categoriaId;
+                    document.getElementById('categoria').value = categoriaId;
                     
                     modalTitle.innerHTML = '<i class="fas fa-edit me-2"></i>Editar Producto';
                     btnGuardar.textContent = 'Actualizar Producto';

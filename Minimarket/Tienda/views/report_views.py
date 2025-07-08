@@ -121,45 +121,101 @@ def gestionar_reportes(request):
                     # Agregar productos si se especificaron
                     if is_ajax and request.content_type == 'application/json':
                         # Para datos JSON de AJAX
-                        producto_id = data.get('producto_id')
-                        cantidad = data.get('cantidad')
-                        if producto_id:
-                            producto = Producto.objects.get(id=producto_id)
-                            # Para reportes de pérdida, usar la cantidad especificada
-                            # Para otros tipos, usar 0 como valor por defecto
-                            if tipo == 'perdida':
-                                cantidad_final = int(cantidad) if cantidad else 0
-                            else:
-                                cantidad_final = int(cantidad) if cantidad else 0
-                            
-                            ReporteProducto.objects.create(
-                                reporte=reporte,
-                                producto=producto,
-                                cantidad=cantidad_final,
-                                observaciones=''
-                            )
+                        productos_data = data.get('productos', [])
+                        if not productos_data:
+                            # Compatibilidad con formato anterior
+                            producto_id = data.get('producto_id')
+                            cantidad = data.get('cantidad')
+                            if producto_id:
+                                productos_data = [{'producto_id': producto_id, 'cantidad': cantidad, 'observaciones': ''}]
+                        
+                        # Validar que se hayan seleccionado productos para reportes que los requieren
+                        if tipo in ['producto', 'perdida'] and not productos_data:
+                            raise ValueError('Debe seleccionar al menos un producto para este tipo de reporte.')
+                        
+                        # Validar productos duplicados
+                        productos_ids = [p.get('producto_id') for p in productos_data if p.get('producto_id')]
+                        if len(productos_ids) != len(set(productos_ids)):
+                            raise ValueError('No puede agregar el mismo producto múltiples veces.')
+                        
+                        for producto_data in productos_data:
+                            producto_id = producto_data.get('producto_id')
+                            if producto_id:
+                                try:
+                                    producto = Producto.objects.get(id=producto_id)
+                                except Producto.DoesNotExist:
+                                    raise ValueError(f'El producto con ID {producto_id} no existe.')
+                                    
+                                cantidad = producto_data.get('cantidad', '')
+                                observaciones = producto_data.get('observaciones', '')
+                                
+                                # Validar cantidad según el tipo de reporte
+                                if tipo == 'perdida':
+                                    if not cantidad or cantidad == '':
+                                        raise ValueError('La cantidad es obligatoria para reportes de pérdida.')
+                                    try:
+                                        cantidad_final = int(cantidad)
+                                    except ValueError:
+                                        raise ValueError('La cantidad debe ser un número válido.')
+                                    if cantidad_final <= 0:
+                                        raise ValueError('La cantidad debe ser mayor a 0.')
+                                elif tipo == 'producto':
+                                    # Para reportes de producto, la cantidad es obligatoria
+                                    if not cantidad or cantidad == '':
+                                        raise ValueError('La cantidad es obligatoria para reportes de producto.')
+                                    try:
+                                        cantidad_final = int(cantidad)
+                                    except ValueError:
+                                        raise ValueError('La cantidad debe ser un número válido.')
+                                    if cantidad_final <= 0:
+                                        raise ValueError('La cantidad debe ser mayor a 0.')
+                                else:
+                                    cantidad_final = int(cantidad) if cantidad and cantidad != '' else None
+                                
+                                ReporteProducto.objects.create(
+                                    reporte=reporte,
+                                    producto=producto,
+                                    cantidad=cantidad_final,
+                                    observaciones=observaciones or 'N/A'
+                                )
                     else:
                         # Para datos de formulario tradicional
                         productos_ids = data.getlist('productos[]')
                         cantidades = data.getlist('cantidades[]')
                         observaciones_list = data.getlist('observaciones[]')
                         
+                        # Validar que se hayan seleccionado productos para reportes que los requieren
+                        if tipo in ['producto', 'perdida'] and not any(productos_ids):
+                            raise ValueError('Debe seleccionar al menos un producto para este tipo de reporte.')
+                        
                         for i, producto_id in enumerate(productos_ids):
                             if producto_id:
                                 producto = Producto.objects.get(id=producto_id)
-                                # Para reportes de pérdida, usar la cantidad especificada
-                                # Para otros tipos, usar 0 como valor por defecto
-                                if tipo == 'perdida':
-                                    cantidad = int(cantidades[i]) if i < len(cantidades) and cantidades[i] else 0
-                                else:
-                                    cantidad = int(cantidades[i]) if i < len(cantidades) and cantidades[i] else 0
+                                cantidad = cantidades[i] if i < len(cantidades) else ''
                                 observaciones = observaciones_list[i] if i < len(observaciones_list) else ''
+                                
+                                # Validar cantidad según el tipo de reporte
+                                if tipo == 'perdida':
+                                    if not cantidad or cantidad == '':
+                                        raise ValueError('La cantidad es obligatoria para reportes de pérdida.')
+                                    cantidad_final = int(cantidad)
+                                    if cantidad_final <= 0:
+                                        raise ValueError('La cantidad debe ser mayor a 0.')
+                                elif tipo == 'producto':
+                                    # Para reportes de producto, la cantidad es obligatoria
+                                    if not cantidad or cantidad == '':
+                                        raise ValueError('La cantidad es obligatoria para reportes de producto.')
+                                    cantidad_final = int(cantidad)
+                                    if cantidad_final <= 0:
+                                        raise ValueError('La cantidad debe ser mayor a 0.')
+                                else:
+                                    cantidad_final = int(cantidad) if cantidad and cantidad != '' else None
                                 
                                 ReporteProducto.objects.create(
                                     reporte=reporte,
                                     producto=producto,
-                                    cantidad=cantidad,
-                                    observaciones=observaciones
+                                    cantidad=cantidad_final,
+                                    observaciones=observaciones or 'N/A'
                                 )
                     
                     if is_ajax:
@@ -211,45 +267,101 @@ def gestionar_reportes(request):
                     
                     if is_ajax and request.content_type == 'application/json':
                         # Para datos JSON de AJAX
-                        producto_id = data.get('producto_id')
-                        cantidad = data.get('cantidad')
-                        if producto_id:
-                            producto = Producto.objects.get(id=producto_id)
-                            # Para reportes de pérdida, usar la cantidad especificada
-                            # Para otros tipos, usar 0 como valor por defecto
-                            if tipo == 'perdida':
-                                cantidad_final = int(cantidad) if cantidad else 0
-                            else:
-                                cantidad_final = int(cantidad) if cantidad else 0
-                            
-                            ReporteProducto.objects.create(
-                                reporte=reporte,
-                                producto=producto,
-                                cantidad=cantidad_final,
-                                observaciones=''
-                            )
+                        productos_data = data.get('productos', [])
+                        if not productos_data:
+                            # Compatibilidad con formato anterior
+                            producto_id = data.get('producto_id')
+                            cantidad = data.get('cantidad')
+                            if producto_id:
+                                productos_data = [{'producto_id': producto_id, 'cantidad': cantidad, 'observaciones': ''}]
+                        
+                        # Validar que se hayan seleccionado productos para reportes que los requieren
+                        if tipo in ['producto', 'perdida'] and not productos_data:
+                            raise ValueError('Debe seleccionar al menos un producto para este tipo de reporte.')
+                        
+                        # Validar productos duplicados
+                        productos_ids = [p.get('producto_id') for p in productos_data if p.get('producto_id')]
+                        if len(productos_ids) != len(set(productos_ids)):
+                            raise ValueError('No puede agregar el mismo producto múltiples veces.')
+                        
+                        for producto_data in productos_data:
+                            producto_id = producto_data.get('producto_id')
+                            if producto_id:
+                                try:
+                                    producto = Producto.objects.get(id=producto_id)
+                                except Producto.DoesNotExist:
+                                    raise ValueError(f'El producto con ID {producto_id} no existe.')
+                                    
+                                cantidad = producto_data.get('cantidad', '')
+                                observaciones = producto_data.get('observaciones', '')
+                                
+                                # Validar cantidad según el tipo de reporte
+                                if tipo == 'perdida':
+                                    if not cantidad or cantidad == '':
+                                        raise ValueError('La cantidad es obligatoria para reportes de pérdida.')
+                                    try:
+                                        cantidad_final = int(cantidad)
+                                    except ValueError:
+                                        raise ValueError('La cantidad debe ser un número válido.')
+                                    if cantidad_final <= 0:
+                                        raise ValueError('La cantidad debe ser mayor a 0.')
+                                elif tipo == 'producto':
+                                    # Para reportes de producto, la cantidad es obligatoria
+                                    if not cantidad or cantidad == '':
+                                        raise ValueError('La cantidad es obligatoria para reportes de producto.')
+                                    try:
+                                        cantidad_final = int(cantidad)
+                                    except ValueError:
+                                        raise ValueError('La cantidad debe ser un número válido.')
+                                    if cantidad_final <= 0:
+                                        raise ValueError('La cantidad debe ser mayor a 0.')
+                                else:
+                                    cantidad_final = int(cantidad) if cantidad and cantidad != '' else None
+                                
+                                ReporteProducto.objects.create(
+                                    reporte=reporte,
+                                    producto=producto,
+                                    cantidad=cantidad_final,
+                                    observaciones=observaciones or 'N/A'
+                                )
                     else:
                         # Para datos de formulario tradicional
                         productos_ids = data.getlist('productos[]')
                         cantidades = data.getlist('cantidades[]')
                         observaciones_list = data.getlist('observaciones[]')
                         
+                        # Validar que se hayan seleccionado productos para reportes que los requieren
+                        if tipo in ['producto', 'perdida'] and not any(productos_ids):
+                            raise ValueError('Debe seleccionar al menos un producto para este tipo de reporte.')
+                        
                         for i, producto_id in enumerate(productos_ids):
                             if producto_id:
                                 producto = Producto.objects.get(id=producto_id)
-                                # Para reportes de pérdida, usar la cantidad especificada
-                                # Para otros tipos, usar 0 como valor por defecto
-                                if tipo == 'perdida':
-                                    cantidad = int(cantidades[i]) if i < len(cantidades) and cantidades[i] else 0
-                                else:
-                                    cantidad = int(cantidades[i]) if i < len(cantidades) and cantidades[i] else 0
+                                cantidad = cantidades[i] if i < len(cantidades) else ''
                                 observaciones = observaciones_list[i] if i < len(observaciones_list) else ''
+                                
+                                # Validar cantidad según el tipo de reporte
+                                if tipo == 'perdida':
+                                    if not cantidad or cantidad == '':
+                                        raise ValueError('La cantidad es obligatoria para reportes de pérdida.')
+                                    cantidad_final = int(cantidad)
+                                    if cantidad_final <= 0:
+                                        raise ValueError('La cantidad debe ser mayor a 0.')
+                                elif tipo == 'producto':
+                                    # Para reportes de producto, la cantidad es obligatoria
+                                    if not cantidad or cantidad == '':
+                                        raise ValueError('La cantidad es obligatoria para reportes de producto.')
+                                    cantidad_final = int(cantidad)
+                                    if cantidad_final <= 0:
+                                        raise ValueError('La cantidad debe ser mayor a 0.')
+                                else:
+                                    cantidad_final = int(cantidad) if cantidad and cantidad != '' else None
                                 
                                 ReporteProducto.objects.create(
                                     reporte=reporte,
                                     producto=producto,
-                                    cantidad=cantidad,
-                                    observaciones=observaciones
+                                    cantidad=cantidad_final,
+                                    observaciones=observaciones or 'N/A'
                                 )
                     
                     if is_ajax:

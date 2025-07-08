@@ -21,14 +21,24 @@ def validar_rut_chileno(rut_completo):
     rut = tmp[0]
     digv = tmp[1].upper()
     def dv(T):
-        M = 0
-        S = 1
-        T = int(T)
-        while T:
-            S = (S + T % 10 * (9 - M % 6)) % 11
-            M += 1
-            T //= 10
-        return str(S - 1) if S != 1 else 'K'
+        rut_str = str(T)
+        reversed_digits = rut_str[::-1]
+        factors = [2, 3, 4, 5, 6, 7]
+        sum_total = 0
+        
+        for i, digit in enumerate(reversed_digits):
+            factor = factors[i % 6]
+            sum_total += int(digit) * factor
+        
+        remainder = sum_total % 11
+        check_digit = 11 - remainder
+        
+        if check_digit == 11:
+            return '0'
+        elif check_digit == 10:
+            return 'K'
+        else:
+            return str(check_digit)
     return dv(rut).upper() == digv
 
 @login_required
@@ -98,28 +108,33 @@ def gestionar_proveedores(request):
                 rut_int = int(rut)
                 # Validar RUT chileno
                 def dv(T):
-                    M = 0
-                    S = 1
-                    T = int(T)
-                    while T:
-                        S = (S + T % 10 * (9 - M % 6)) % 11
-                        M += 1
-                        T //= 10
-                    if S == 0:
-                        return 'K'
-                    elif S == 1:
+                    rut_str = str(T)
+                    reversed_digits = rut_str[::-1]
+                    factors = [2, 3, 4, 5, 6, 7]
+                    sum_total = 0
+                    
+                    for i, digit in enumerate(reversed_digits):
+                        factor = factors[i % 6]
+                        sum_total += int(digit) * factor
+                    
+                    remainder = sum_total % 11
+                    check_digit = 11 - remainder
+                    
+                    if check_digit == 11:
                         return '0'
+                    elif check_digit == 10:
+                        return 'K'
                     else:
-                        return str(11 - S)
+                        return str(check_digit)
                 dv_result = dv(rut_int).upper()
                 verify_digit_upper = verify_digit.upper()
-                if not ((dv_result == verify_digit_upper) or (dv_result == 'K' and verify_digit_upper == 'K') or (dv_result == '0' and verify_digit_upper == '0')):
+                if dv_result != verify_digit_upper:
                     raise ValueError('El RUT ingresado no es válido para Chile.')
                 direccion = request.POST.get('direccion', '').strip()
                 direccion_is_null = not direccion
                 if direccion == '':
                     raise ValueError('No puedes ingresar solo espacios en la dirección.')
-                    telefono_is_null = not telefono
+                telefono_is_null = not telefono
                 if telefono and (not telefono.isdigit() or not (7 <= len(telefono) <= 10)):
                     raise ValueError('El teléfono debe tener entre 7 y 10 dígitos numéricos.')
                 if direccion_is_null and telefono_is_null:
@@ -174,22 +189,27 @@ def gestionar_proveedores(request):
                     raise ValueError('El dígito verificador debe ser un número o "K".')
                 rut_int = int(rut)
                 def dv(T):
-                    M = 0
-                    S = 1
-                    T = int(T)
-                    while T:
-                        S = (S + T % 10 * (9 - M % 6)) % 11
-                        M += 1
-                        T //= 10
-                    if S == 0:
-                        return 'K'
-                    elif S == 1:
+                    rut_str = str(T)
+                    reversed_digits = rut_str[::-1]
+                    factors = [2, 3, 4, 5, 6, 7]
+                    sum_total = 0
+                    
+                    for i, digit in enumerate(reversed_digits):
+                        factor = factors[i % 6]
+                        sum_total += int(digit) * factor
+                    
+                    remainder = sum_total % 11
+                    check_digit = 11 - remainder
+                    
+                    if check_digit == 11:
                         return '0'
+                    elif check_digit == 10:
+                        return 'K'
                     else:
-                        return str(11 - S)
+                        return str(check_digit)
                 dv_result = dv(rut_int).upper()
                 verify_digit_upper = verify_digit.upper()
-                if not ((dv_result == verify_digit_upper) or (dv_result == 'K' and verify_digit_upper == 'K') or (dv_result == '0' and verify_digit_upper == '0')):
+                if dv_result != verify_digit_upper:
                     raise ValueError('El RUT ingresado no es válido para Chile.')
                 direccion_is_null = not direccion
                 telefono_is_null = not telefono
@@ -270,7 +290,8 @@ def gestionar_proveedores(request):
                     'nombre_proveedor': proveedor.nombre_proveedor,
                     'direccion': proveedor.direccion,
                     'telefono': proveedor.telefono,
-                    'rut': proveedor.rut
+                    'rut': proveedor.rut,
+                    'verify_digit': proveedor.verify_digit
                 })
             except Exception as e:
                 return JsonResponse({'error': str(e)}, status=400)

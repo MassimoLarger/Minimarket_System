@@ -175,7 +175,7 @@
                     <div id="campos-vencimiento" class="tipo-campos" style="display: none;">
                         <div class="mb-3">
                             <label for="dias_anticipacion_venc" class="form-label">Días de Anticipación</label>
-                            <input type="number" class="form-control" id="dias_anticipacion_venc" name="dias_anticipacion" min="1" value="7" placeholder="Días antes del vencimiento">
+                            <input type="number" class="form-control" id="dias_anticipacion_venc" name="dias_anticipacion" min="1" max="365" value="7" placeholder="Días antes del vencimiento">
                             <div class="form-text">La alerta se activará cuando cualquier producto esté próximo a vencer en este número de días.</div>
                         </div>
                     </div>
@@ -183,7 +183,7 @@
                     <div id="campos-oferta" class="tipo-campos" style="display: none;">
                         <div class="mb-3">
                             <label for="dias_anticipacion_oferta" class="form-label">Días de Anticipación</label>
-                            <input type="number" class="form-control" id="dias_anticipacion_oferta" name="dias_anticipacion" min="1" value="3" placeholder="Días antes del fin">
+                            <input type="number" class="form-control" id="dias_anticipacion_oferta" name="dias_anticipacion" min="1" max="365" value="3" placeholder="Días antes del fin">
                             <div class="form-text">La alerta se activará cuando cualquier oferta esté próxima a terminar en este número de días.</div>
                         </div>
                     </div>
@@ -249,7 +249,7 @@
                     <div id="edit-campos-vencimiento" class="edit-tipo-campos" style="display: none;">
                         <div class="mb-3">
                             <label for="edit_dias_anticipacion_venc" class="form-label">Días de Anticipación</label>
-                            <input type="number" class="form-control" id="edit_dias_anticipacion_venc" name="dias_anticipacion" min="1" placeholder="Días antes del vencimiento">
+                            <input type="number" class="form-control" id="edit_dias_anticipacion_venc" name="dias_anticipacion_venc" min="1" max="365" placeholder="Días antes del vencimiento">
                             <div class="form-text">La alerta se activará cuando cualquier producto esté próximo a vencer en este número de días.</div>
                         </div>
                     </div>
@@ -257,7 +257,7 @@
                     <div id="edit-campos-oferta" class="edit-tipo-campos" style="display: none;">
                         <div class="mb-3">
                             <label for="edit_dias_anticipacion_oferta" class="form-label">Días de Anticipación</label>
-                            <input type="number" class="form-control" id="edit_dias_anticipacion_oferta" name="dias_anticipacion" min="1" placeholder="Días antes del fin">
+                            <input type="number" class="form-control" id="edit_dias_anticipacion_oferta" name="dias_anticipacion_oferta" min="1" max="365" placeholder="Días antes del fin">
                             <div class="form-text">La alerta se activará cuando cualquier oferta esté próxima a terminar en este número de días.</div>
                         </div>
                     </div>
@@ -396,81 +396,76 @@ document.addEventListener('DOMContentLoaded', function() {
          button.addEventListener('click', function() {
              const alertaId = this.getAttribute('data-id');
              
-             // Buscar los datos de la alerta en la tabla
-              const row = this.closest('tr');
-              const nombreElement = row.cells[0].querySelector('strong');
-              const nombre = nombreElement ? nombreElement.textContent.trim() : '';
-              const tipoElement = row.cells[1].querySelector('.badge');
-              const mensajeElement = row.cells[0].querySelector('small.text-muted');
-              const mensaje = mensajeElement ? mensajeElement.textContent.trim() : '';
-              const parametrosCell = row.cells[4]; // Columna de parámetros
-              
-              // Llenar el modal con los datos actuales
-              document.getElementById('edit_alerta_id').value = alertaId;
-              document.getElementById('edit_nombre').value = nombre;
-              document.getElementById('edit_mensaje').value = mensaje;
-              
-              // Determinar el tipo y seleccionarlo
-              const tipoSelect = document.getElementById('edit_tipo');
-              const tipoText = tipoElement.textContent.trim();
-              let tipoSeleccionado = '';
-              if (tipoText.includes('Stock')) {
-                  tipoSelect.value = 'stock_bajo';
-                  tipoSeleccionado = 'stock_bajo';
-              } else if (tipoText.includes('Vencer')) {
-                  tipoSelect.value = 'proximo_vencer';
-                  tipoSeleccionado = 'proximo_vencer';
-              } else if (tipoText.includes('Oferta')) {
-                  tipoSelect.value = 'oferta_terminando';
-                  tipoSeleccionado = 'oferta_terminando';
-              }
-              
-              // Mostrar campos específicos del tipo sin limpiar
-               document.querySelectorAll('.edit-tipo-campos').forEach(campo => {
-                   campo.style.display = 'none';
-               });
-               
-               if (tipoSeleccionado === 'stock_bajo') {
-                   document.getElementById('edit-campos-stock').style.display = 'block';
-               } else if (tipoSeleccionado === 'proximo_vencer') {
-                   document.getElementById('edit-campos-vencimiento').style.display = 'block';
-               } else if (tipoSeleccionado === 'oferta_terminando') {
-                   document.getElementById('edit-campos-oferta').style.display = 'block';
-               }
-               
-               // Llenar valores específicos según el tipo
-               if (tipoSeleccionado === 'stock_bajo') {
-                   const stockMatch = parametrosCell.textContent.match(/Stock: (\d+)/);
-                   if (stockMatch) {
-                       document.getElementById('edit_umbral_stock').value = stockMatch[1];
-                   }
-               } else if (tipoSeleccionado === 'proximo_vencer' || tipoSeleccionado === 'oferta_terminando') {
-                   const diasMatch = parametrosCell.textContent.match(/Días: (\d+)/);
-                   if (diasMatch) {
-                       if (tipoSeleccionado === 'proximo_vencer') {
-                           document.getElementById('edit_dias_anticipacion_venc').value = diasMatch[1];
-                       } else {
-                           document.getElementById('edit_dias_anticipacion_oferta').value = diasMatch[1];
-                       }
-                   }
-               }
+             // Obtener datos reales de la alerta desde el backend
+             const formData = new FormData();
+             formData.append('action', 'obtener_alerta');
+             formData.append('alerta_id', alertaId);
+             formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
              
-             // Mostrar el modal
-             new bootstrap.Modal(document.getElementById('editarAlertaModal')).show();
+             fetch('', {
+                 method: 'POST',
+                 body: formData,
+                 headers: {
+                     'X-Requested-With': 'XMLHttpRequest'
+                 }
+             })
+             .then(response => response.json())
+             .then(data => {
+                 if (data.success) {
+                     const alerta = data.alerta;
+                     
+                     // Llenar el modal con los datos reales
+                     document.getElementById('edit_alerta_id').value = alerta.id;
+                     document.getElementById('edit_nombre').value = alerta.nombre;
+                     document.getElementById('edit_mensaje').value = alerta.mensaje;
+                     document.getElementById('edit_tipo').value = alerta.tipo;
+                     
+                     // Establecer valores reales de parámetros
+                     if (alerta.tipo === 'stock_bajo' && alerta.umbral_stock !== null) {
+                         document.getElementById('edit_umbral_stock').value = alerta.umbral_stock;
+                     } else if (alerta.tipo === 'proximo_vencer' && alerta.dias_anticipacion !== null) {
+                         document.getElementById('edit_dias_anticipacion_venc').value = alerta.dias_anticipacion;
+                     } else if (alerta.tipo === 'oferta_terminando' && alerta.dias_anticipacion !== null) {
+                         document.getElementById('edit_dias_anticipacion_oferta').value = alerta.dias_anticipacion;
+                     }
+                     
+                     // Mostrar campos específicos del tipo sin limpiar valores
+                     mostrarCamposEditarTipo(alerta.tipo, false);
+                     
+                     // Mostrar el modal
+                     new bootstrap.Modal(document.getElementById('editarAlertaModal')).show();
+                 } else {
+                     Swal.fire({
+                         icon: 'error',
+                         title: 'Error',
+                         text: 'Error al obtener datos de la alerta: ' + data.message
+                     });
+                 }
+             })
+             .catch(error => {
+                 console.error('Error:', error);
+                 Swal.fire({
+                     icon: 'error',
+                     title: 'Error',
+                     text: 'Error al obtener datos de la alerta'
+                 });
+             });
          });
      });
     
     // Función para mostrar campos específicos en el modal de editar
-     function mostrarCamposEditarTipo(tipo) {
-         // Ocultar todos los campos específicos y limpiar valores
+     function mostrarCamposEditarTipo(tipo, limpiarValores = true) {
+         // Ocultar todos los campos específicos
          document.querySelectorAll('.edit-tipo-campos').forEach(campo => {
              campo.style.display = 'none';
          });
          
-         // Limpiar todos los campos específicos
-         document.getElementById('edit_umbral_stock').value = '';
-         document.getElementById('edit_dias_anticipacion_venc').value = '';
-         document.getElementById('edit_dias_anticipacion_oferta').value = '';
+         // Limpiar todos los campos específicos solo si se solicita
+         if (limpiarValores) {
+             document.getElementById('edit_umbral_stock').value = '';
+             document.getElementById('edit_dias_anticipacion_venc').value = '';
+             document.getElementById('edit_dias_anticipacion_oferta').value = '';
+         }
          
          // Mostrar el campo específico del tipo seleccionado
          if (tipo === 'stock_bajo') {

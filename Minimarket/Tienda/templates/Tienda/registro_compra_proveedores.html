@@ -32,14 +32,15 @@
                             <td>${{ registro.precio_unitario }}</td>
                             <td>${{ registro.valor_total }}</td>
                             <td>
-                                <form method="post" action="" style="display:inline;">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="action" value="delete_registro">
-                                    <input type="hidden" name="registro_id" value="{{ registro.id }}">
-                                    <button type="submit" class="btn btn-danger btn-sm" title="Eliminar">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </form>
+                                <button type="button" class="btn btn-danger btn-sm" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#confirmarEliminarModal"
+                                        data-registro-id="{{ registro.id }}"
+                                        data-proveedor="{{ registro.proveedor.nombre_proveedor }}"
+                                        data-producto="{{ registro.productos.nombre }}"
+                                        title="Eliminar">
+                                    <i class="fas fa-trash"></i>
+                                </button>
                             </td>
                         </tr>
                         {% empty %}
@@ -58,4 +59,90 @@
         </a>
     </div>
 </div>
+
+<!-- Modal Confirmar Eliminación -->
+<div class="modal fade" id="confirmarEliminarModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i>Confirmar Eliminación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Está seguro de eliminar este registro de compra?</p>
+                <div class="alert alert-info">
+                    <strong>Proveedor:</strong> <span id="modal-proveedor"></span><br>
+                    <strong>Producto:</strong> <span id="modal-producto"></span>
+                </div>
+                <p class="text-danger"><small>Esta acción no se puede deshacer.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cancelar
+                </button>
+                <form id="form-eliminar-registro" method="post" action="" style="display:inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete_registro">
+                    <input type="hidden" name="registro_id" id="modal-registro-id">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash me-2"></i>Eliminar
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Funciones de utilidad para SweetAlert
+function showSwalSuccess(message) {
+    Swal.fire({
+        icon: 'success',
+        title: '¡Éxito!',
+        text: message,
+        timer: 3000,
+        showConfirmButton: false
+    });
+}
+
+function showSwalError(message) {
+    Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: message,
+        confirmButtonText: 'Entendido'
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Mostrar mensajes de Django usando SweetAlert
+    {% if messages %}
+        {% for message in messages %}
+            {% if message.tags == 'success' %}
+                showSwalSuccess('{{ message|escapejs }}');
+            {% elif message.tags == 'error' %}
+                showSwalError('{{ message|escapejs }}');
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+    
+    // Configurar modal de eliminación
+    const modal = document.getElementById('confirmarEliminarModal');
+    if (modal) {
+        modal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const registroId = button.getAttribute('data-registro-id');
+            const proveedor = button.getAttribute('data-proveedor');
+            const producto = button.getAttribute('data-producto');
+            
+            document.getElementById('modal-registro-id').value = registroId;
+            document.getElementById('modal-proveedor').textContent = proveedor;
+            document.getElementById('modal-producto').textContent = producto;
+        });
+    }
+});
+</script>
 {% endblock %}

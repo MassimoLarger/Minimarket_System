@@ -177,7 +177,7 @@
                                         <input type="number" class="form-control" name="cantidades[]" min="1" value="1" required>
                                     </div>
                                     <div class="col-md-1 d-flex align-items-end">
-                                        <button type="button" class="btn btn-danger btn-remove-producto" disabled>
+                                        <button type="button" class="btn btn-danger btn-remove-producto">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
@@ -364,17 +364,54 @@ document.addEventListener('DOMContentLoaded', function() {
     function filtrarLotes() {
         const texto = buscarInput.value.toLowerCase();
         const filtro = filtroSelect.value;
-        const filas = document.querySelectorAll('tbody tr[data-id]');
+        const filas = Array.from(document.querySelectorAll('tbody tr[data-id]'));
         let hayResultados = false;
         
-        filas.forEach(fila => {
+        // Filtrar por texto de búsqueda
+        const filasVisibles = filas.filter(fila => {
             const cumpleBusqueda = texto === '' || 
                 fila.dataset.codigo.includes(texto) || 
                 fila.dataset.proveedor.includes(texto);
             
             fila.style.display = cumpleBusqueda ? '' : 'none';
             if (cumpleBusqueda) hayResultados = true;
+            return cumpleBusqueda;
         });
+        
+        // Aplicar ordenamiento según el filtro seleccionado
+        if (filtro && filasVisibles.length > 0) {
+            const tbody = document.querySelector('tbody');
+            let filasOrdenadas;
+            
+            switch(filtro) {
+                case 'recientes':
+                    filasOrdenadas = filasVisibles.sort((a, b) => {
+                        const fechaA = new Date(a.dataset.fecha);
+                        const fechaB = new Date(b.dataset.fecha);
+                        return fechaB - fechaA; // Más recientes primero
+                    });
+                    break;
+                case 'antiguos':
+                    filasOrdenadas = filasVisibles.sort((a, b) => {
+                        const fechaA = new Date(a.dataset.fecha);
+                        const fechaB = new Date(b.dataset.fecha);
+                        return fechaA - fechaB; // Más antiguos primero
+                    });
+                    break;
+                case 'proveedor':
+                    filasOrdenadas = filasVisibles.sort((a, b) => {
+                        return a.dataset.proveedor.localeCompare(b.dataset.proveedor);
+                    });
+                    break;
+                default:
+                    filasOrdenadas = filasVisibles;
+            }
+            
+            // Reordenar las filas en el DOM
+            filasOrdenadas.forEach(fila => {
+                tbody.appendChild(fila);
+            });
+        }
         
         const noResultados = document.getElementById('no-resultados');
         if (noResultados) {
@@ -390,7 +427,44 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 2. Gestión de Productos en Nuevo Lote
     const btnAddProducto = document.getElementById('btn-add-producto');
+    
+    // Función para actualizar el estado de los botones de eliminar
+    function actualizarBotonesEliminar() {
+        const container = document.getElementById('productos-container');
+        if (!container) return;
+        
+        const productos = container.querySelectorAll('.producto-item');
+        const hayMasDeUno = productos.length > 1;
+        
+        productos.forEach(producto => {
+            const btnRemove = producto.querySelector('.btn-remove-producto');
+            if (btnRemove) {
+                btnRemove.disabled = !hayMasDeUno;
+            }
+        });
+    }
+    
+    // Configurar eventos de eliminación para productos existentes
+    function configurarEventosEliminacion() {
+        const container = document.getElementById('productos-container');
+        if (!container) return;
+        
+        container.querySelectorAll('.btn-remove-producto').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const container = document.getElementById('productos-container');
+                if (container.querySelectorAll('.producto-item').length > 1) {
+                    this.closest('.producto-item').remove();
+                    actualizarBotonesEliminar();
+                }
+            });
+        });
+    }
+    
     if (btnAddProducto) {
+        // Configurar eventos iniciales
+        configurarEventosEliminacion();
+        actualizarBotonesEliminar();
+        
         btnAddProducto.addEventListener('click', function() {
             const container = document.getElementById('productos-container');
             const template = container.querySelector('.producto-item');
@@ -402,16 +476,18 @@ document.addEventListener('DOMContentLoaded', function() {
             select.value = '';
             inputs.forEach(input => input.value = input.type === 'number' ? '1' : '');
             
-            // Habilitar botón eliminar
+            // Configurar botón eliminar del nuevo producto
             const btnRemove = clone.querySelector('.btn-remove-producto');
-            btnRemove.disabled = false;
             btnRemove.addEventListener('click', function() {
+                const container = document.getElementById('productos-container');
                 if (container.querySelectorAll('.producto-item').length > 1) {
                     this.closest('.producto-item').remove();
+                    actualizarBotonesEliminar();
                 }
             });
             
             container.appendChild(clone);
+            actualizarBotonesEliminar();
         });
     }
 
@@ -508,7 +584,44 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 5. Añadir filas dinámicas para asignar productos
     const btnAddFila = document.getElementById('btn-add-fila');
+    
+    // Función para actualizar el estado de los botones de eliminar en asignar productos
+    function actualizarBotonesEliminarAsignar() {
+        const container = document.getElementById('productos-asignar-container');
+        if (!container) return;
+        
+        const productos = container.querySelectorAll('.producto-asignar-item');
+        const hayMasDeUno = productos.length > 1;
+        
+        productos.forEach(producto => {
+            const btnRemove = producto.querySelector('.btn-remove-fila');
+            if (btnRemove) {
+                btnRemove.disabled = !hayMasDeUno;
+            }
+        });
+    }
+    
+    // Configurar eventos de eliminación para productos de asignar existentes
+    function configurarEventosEliminacionAsignar() {
+        const container = document.getElementById('productos-asignar-container');
+        if (!container) return;
+        
+        container.querySelectorAll('.btn-remove-fila').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const container = document.getElementById('productos-asignar-container');
+                if (container.querySelectorAll('.producto-asignar-item').length > 1) {
+                    this.closest('tr').remove();
+                    actualizarBotonesEliminarAsignar();
+                }
+            });
+        });
+    }
+    
     if (btnAddFila) {
+        // Configurar eventos iniciales para asignar productos
+        configurarEventosEliminacionAsignar();
+        actualizarBotonesEliminarAsignar();
+        
         btnAddFila.addEventListener('click', function() {
             const container = document.getElementById('productos-asignar-container');
             const template = container.querySelector('.producto-asignar-item');
@@ -520,16 +633,18 @@ document.addEventListener('DOMContentLoaded', function() {
             select.value = '';
             inputs.forEach(input => input.value = input.type === 'number' ? '1' : '');
             
-            // Habilitar botón eliminar
+            // Configurar botón eliminar del nuevo producto
             const btnRemove = clone.querySelector('.btn-remove-fila');
-            btnRemove.disabled = false;
             btnRemove.addEventListener('click', function() {
+                const container = document.getElementById('productos-asignar-container');
                 if (container.querySelectorAll('.producto-asignar-item').length > 1) {
                     this.closest('tr').remove();
+                    actualizarBotonesEliminarAsignar();
                 }
             });
             
             container.appendChild(clone);
+            actualizarBotonesEliminarAsignar();
         });
     }
 });
