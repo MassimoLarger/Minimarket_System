@@ -30,6 +30,41 @@ def verify_password_warehouse(request):
     else:
         return redirect('home')
 
+def validar_tamanio_seccion(ancho, alto, pos_x=None, pos_y=None):
+    bodega_ancho = 800
+    bodega_alto = 580
+    min_tam = 30
+    max_tam_relativo = 300  # Profundidad razonable cuando uno de los lados es muy largo
+    margen_min = 30
+
+    try:
+        ancho = int(ancho)
+        alto = int(alto)
+    except (ValueError, TypeError):
+        raise ValueError("El ancho y alto deben ser números enteros válidos.")
+
+    # Tamaño mínimo
+    if ancho < min_tam or alto < min_tam:
+        raise ValueError("El estante es demasiado pequeño para ser funcional.")
+
+    # Validación prioritaria: no puede exceder la bodega
+    if ancho > bodega_ancho or alto > bodega_alto:
+        raise ValueError(f"El tamaño del estante excede las dimensiones de la bodega ({bodega_ancho}x{bodega_alto}).")
+
+    # No puede ocupar toda la bodega completa (igual o mayor en ambos lados)
+    if ancho >= bodega_ancho and alto >= bodega_alto:
+        raise ValueError("No puedes crear un estante que ocupe toda la bodega.")
+
+    # Advertencia si es casi del tamaño de la bodega
+    if ancho >= bodega_ancho - margen_min and alto >= bodega_alto - margen_min:
+        raise ValueError("El estante es casi del tamaño de la bodega.")
+
+    # Si un lado es muy largo, el otro debe ser moderado
+    if (ancho >= bodega_ancho and alto > max_tam_relativo) or \
+       (alto >= bodega_alto and ancho > max_tam_relativo):
+        raise ValueError("El estante es muy profundo considerando su largo. Reduce el otro lado.")
+
+
 @login_required
 @user_passes_test(is_superuser, login_url='home')
 def gestionar_bodega(request):
@@ -59,40 +94,21 @@ def crear_seccion(request):
     try:
         data = json.loads(request.body)
         
-        # Validar dimensiones del mapa de bodega
-        ancho = data.get('ancho', 120)
-        alto = data.get('alto', 80)
-        
-        if ancho > 800:
-            return JsonResponse({
-                'success': False, 
-                'error': 'El ancho no puede exceder 800px (tamaño máximo del mapa de bodega)'
-            })
-        
-        if alto > 580:
-            return JsonResponse({
-                'success': False, 
-                'error': 'El alto no puede exceder 580px (tamaño máximo del mapa de bodega)'
-            })
-        
-        if ancho <= 0:
-            return JsonResponse({
-                'success': False, 
-                'error': 'El ancho debe ser mayor a 0'
-            })
-        
-        if alto <= 0:
-            return JsonResponse({
-                'success': False, 
-                'error': 'El alto debe ser mayor a 0'
-            })
+        # Definir valores del tamaño de la sección
+        ancho = int(data.get('ancho', 120))
+        alto = int(data.get('alto', 80))
+        pos_x = int(data.get('posicion_x', 50))
+        pos_y = int(data.get('posicion_y', 50))
+
+        # Antes de crear la seccion se valida si el tamaño es adecuado para la bodega
+        validar_tamanio_seccion(ancho,alto,pos_x,pos_y)
         
         seccion = SeccionBodega.objects.create(
             nombre=data.get('nombre', 'Nueva Sección'),
             descripcion=data.get('descripcion', ''),
             tipo_forma='rectangulo',  # Todas las secciones son auto-ajustables
-            posicion_x=data.get('posicion_x', 50),
-            posicion_y=data.get('posicion_y', 50),
+            posicion_x=pos_x,
+            posicion_y=pos_y,
             ancho=ancho,
             alto=alto,
             color=data.get('color', '#3498db')
@@ -150,36 +166,12 @@ def obtener_secciones(request):
 def actualizar_seccion(request, seccion_id):
     """Actualizar una sección de bodega existente"""
     try:
+        print(f"[DEBUG] Actualizando sección {seccion_id}")
         seccion = get_object_or_404(SeccionBodega, id=seccion_id)
         data = json.loads(request.body)
         
-        # Validar dimensiones del mapa de bodega
-        ancho = data.get('ancho', seccion.ancho)
-        alto = data.get('alto', seccion.alto)
-        
-        if ancho > 800:
-            return JsonResponse({
-                'success': False, 
-                'error': 'El ancho no puede exceder 800px (tamaño máximo del mapa de bodega)'
-            })
-        
-        if alto > 580:
-            return JsonResponse({
-                'success': False, 
-                'error': 'El alto no puede exceder 580px (tamaño máximo del mapa de bodega)'
-            })
-        
-        if ancho <= 0:
-            return JsonResponse({
-                'success': False, 
-                'error': 'El ancho debe ser mayor a 0'
-            })
-        
-        if alto <= 0:
-            return JsonResponse({
-                'success': False, 
-                'error': 'El alto debe ser mayor a 0'
-            })
+        print(f"[DEBUG] Datos recibidos: {data}")
+        print(f"[DEBUG] Valores antes del cambio - ancho: {seccion.ancho}, alto: {seccion.alto}")
         
         # Guardar valores anteriores para comparación
         valores_anteriores = {
@@ -195,16 +187,27 @@ def actualizar_seccion(request, seccion_id):
         seccion.tipo_forma = data.get('tipo_forma', seccion.tipo_forma)
         seccion.posicion_x = data.get('posicion_x', seccion.posicion_x)
         seccion.posicion_y = data.get('posicion_y', seccion.posicion_y)
-        seccion.ancho = ancho
-        seccion.alto = alto
+        seccion.ancho = data.get('ancho', seccion.ancho)
+        seccion.alto = data.get('alto', seccion.alto)
         seccion.color = data.get('color', seccion.color)
+
+        # Antes de crear la seccion se valida si el tamaño es adecuado para la bodega
+        validar_tamanio_seccion(seccion.ancho,seccion.alto,seccion.posicion_x,seccion.posicion_y)
+
+        # Manejo de errores al modificar el tamaño y ser demasiado grande en relación a la bodega
+        if seccion.ancho > 800 or seccion.alto > 580:
+            raise ValueError("El tamaño de la sección es demasiado grande")   
+        
+        print(f"[DEBUG] Valores después del cambio - ancho: {seccion.ancho}, alto: {seccion.alto}")
         
         # Forzar el guardado con update_fields específicos
         seccion.save(update_fields=['nombre', 'descripcion', 'tipo_forma', 'posicion_x', 'posicion_y', 'ancho', 'alto', 'color'])
+        print(f"[DEBUG] Sección guardada exitosamente")
         
         # Verificar que los cambios se guardaron
         seccion.refresh_from_db()
-
+        print(f"[DEBUG] Valores después de refresh_from_db - ancho: {seccion.ancho}, alto: {seccion.alto}")
+        
         # Verificar si realmente cambió algo
         cambios_detectados = {
             'nombre': valores_anteriores['nombre'] != seccion.nombre,
@@ -213,6 +216,7 @@ def actualizar_seccion(request, seccion_id):
             'posicion_x': valores_anteriores['posicion_x'] != seccion.posicion_x,
             'posicion_y': valores_anteriores['posicion_y'] != seccion.posicion_y
         }
+        print(f"[DEBUG] Cambios detectados: {cambios_detectados}")
         
         return JsonResponse({
             'success': True,
@@ -240,6 +244,7 @@ def actualizar_seccion(request, seccion_id):
             }
         })
     except Exception as e:
+        print(f"[DEBUG] Error actualizando sección: {str(e)}")
         return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required
