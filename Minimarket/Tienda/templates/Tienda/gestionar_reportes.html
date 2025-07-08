@@ -33,8 +33,6 @@
                                 <option value="">Seleccionar tipo...</option>
                                 <option value="producto">Producto</option>
                                 <option value="perdida">Pérdida</option>
-                                <option value="inventario">Inventario</option>
-                                <option value="ventas">Ventas</option>
                             </select>
                         </div>
                         
@@ -203,8 +201,6 @@
                         <select class="form-select" id="editTipoReporte" name="editTipoReporte" onchange="mostrarCamposProductoEdit()" required>
                             <option value="producto">Producto</option>
                             <option value="perdida">Pérdida</option>
-                            <option value="inventario">Inventario</option>
-                            <option value="ventas">Ventas</option>
                         </select>
                     </div>
                     
@@ -577,7 +573,7 @@ document.getElementById('formCrearReporte').addEventListener('submit', function(
 
 // Ver detalle del reporte
 function verDetalleReporte(reporteId) {
-    fetch(`/reportes/obtener-detalle/${reporteId}/`)
+    fetch(`{% url "gestionar_reportes" %}?action=get&id=${reporteId}`)
     .then(response => {
         if (!response.ok) {
             return response.json().then(err => { throw err; });
@@ -591,7 +587,7 @@ function verDetalleReporte(reporteId) {
                 <div class="row">
                     <div class="col-md-6">
                         <h6><strong>Nombre:</strong></h6>
-                        <p>${reporte.nombre_reporte}</p>
+                        <p>${reporte.nombre}</p>
                     </div>
                     <div class="col-md-6">
                         <h6><strong>Tipo:</strong></h6>
@@ -610,7 +606,10 @@ function verDetalleReporte(reporteId) {
                 </div>
             `;
             
-            if (reporte.productos && reporte.productos.length > 0) {
+            // Manejar tanto la estructura de data.productos como reporte.productos
+            const productos = data.productos || reporte.productos || [];
+            
+            if (productos && productos.length > 0) {
                 html += `
                     <div class="row">
                         <div class="col-12">
@@ -627,11 +626,13 @@ function verDetalleReporte(reporteId) {
                                     <tbody>
                 `;
                 
-                reporte.productos.forEach(producto => {
+                productos.forEach(producto => {
+                    const nombreProducto = producto.producto_nombre || producto.nombre;
+                    const cantidad = producto.cantidad !== null && producto.cantidad !== undefined && producto.cantidad !== '' ? producto.cantidad : 'N/A';
                     html += `
                         <tr>
-                            <td>${producto.producto_nombre}</td>
-                            <td>${producto.cantidad}</td>
+                            <td>${nombreProducto}</td>
+                            <td>${cantidad}</td>
                             <td>${producto.observaciones || 'N/A'}</td>
                         </tr>
                     `;
@@ -678,8 +679,16 @@ function editarReporte(reporteId) {
     .then(data => {
         if (data.success) {
             const reporte = data.reporte;
+            console.log('Datos del reporte recibidos:', reporte);
+            console.log('Nombre del reporte:', reporte.nombre);
+            console.log('Nombre_reporte del reporte:', reporte.nombre_reporte);
+            
+            // Usar nombre_reporte como respaldo si nombre está vacío
+            const nombreReporte = reporte.nombre || reporte.nombre_reporte || '';
+            console.log('Nombre final a usar:', nombreReporte);
+            
             document.getElementById('editReporteId').value = reporte.id;
-            document.getElementById('editNombreReporte').value = reporte.nombre;
+            document.getElementById('editNombreReporte').value = nombreReporte;
             document.getElementById('editDescripcionReporte').value = reporte.descripcion;
             document.getElementById('editTipoReporte').value = reporte.tipo;
             

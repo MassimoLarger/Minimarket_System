@@ -97,38 +97,7 @@
 
 {% block extra_js %}
 <script>
-// Funciones de utilidad para SweetAlert
-function showSwalSuccess(message) {
-    Swal.fire({
-        icon: 'success',
-        title: '¡Éxito!',
-        text: message,
-        timer: 3000,
-        showConfirmButton: false
-    });
-}
-
-function showSwalError(message) {
-    Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: message,
-        confirmButtonText: 'Entendido'
-    });
-}
-
 document.addEventListener('DOMContentLoaded', function() {
-    // Mostrar mensajes de Django usando SweetAlert
-    {% if messages %}
-        {% for message in messages %}
-            {% if message.tags == 'success' %}
-                showSwalSuccess('{{ message|escapejs }}');
-            {% elif message.tags == 'error' %}
-                showSwalError('{{ message|escapejs }}');
-            {% endif %}
-        {% endfor %}
-    {% endif %}
-    
     // Configurar modal de eliminación
     const modal = document.getElementById('confirmarEliminarModal');
     if (modal) {

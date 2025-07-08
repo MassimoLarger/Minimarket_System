@@ -56,7 +56,8 @@ def gestionar_reportes(request):
                         'id': rp.producto.id,
                         'producto_id': rp.producto.id,
                         'producto_nombre': rp.producto.nombre,
-                        'cantidad': rp.cantidad,
+                        'nombre': rp.producto.nombre,
+                        'cantidad': rp.cantidad if rp.cantidad is not None else '',
                         'observaciones': rp.observaciones or ''
                     })
                 
@@ -170,7 +171,11 @@ def gestionar_reportes(request):
                                     if cantidad_final <= 0:
                                         raise ValueError('La cantidad debe ser mayor a 0.')
                                 else:
-                                    cantidad_final = int(cantidad) if cantidad and cantidad != '' else None
+                                    # Para tipos inventario y ventas, la cantidad es opcional
+                                    try:
+                                        cantidad_final = int(cantidad) if cantidad and cantidad != '' else None
+                                    except ValueError:
+                                        raise ValueError('La cantidad debe ser un número válido.')
                                 
                                 ReporteProducto.objects.create(
                                     reporte=reporte,
@@ -209,7 +214,11 @@ def gestionar_reportes(request):
                                     if cantidad_final <= 0:
                                         raise ValueError('La cantidad debe ser mayor a 0.')
                                 else:
-                                    cantidad_final = int(cantidad) if cantidad and cantidad != '' else None
+                                    # Para tipos inventario y ventas, la cantidad es opcional
+                                    try:
+                                        cantidad_final = int(cantidad) if cantidad and cantidad != '' else None
+                                    except ValueError:
+                                        raise ValueError('La cantidad debe ser un número válido.')
                                 
                                 ReporteProducto.objects.create(
                                     reporte=reporte,
@@ -257,7 +266,7 @@ def gestionar_reportes(request):
                     if Reporte.objects.filter(nombre_reporte__iexact=nombre_reporte).exclude(id=reporte_id).exists():
                         raise ValueError('Ya existe otro reporte con ese nombre.')
                     
-                    reporte.nombre_reporte = nombre_reporte
+                    reporte.nombre = nombre_reporte
                     reporte.descripcion = descripcion
                     reporte.tipo = tipo
                     reporte.save()
@@ -316,7 +325,11 @@ def gestionar_reportes(request):
                                     if cantidad_final <= 0:
                                         raise ValueError('La cantidad debe ser mayor a 0.')
                                 else:
-                                    cantidad_final = int(cantidad) if cantidad and cantidad != '' else None
+                                    # Para tipos inventario y ventas, la cantidad es opcional
+                                    try:
+                                        cantidad_final = int(cantidad) if cantidad and cantidad != '' else None
+                                    except ValueError:
+                                        raise ValueError('La cantidad debe ser un número válido.')
                                 
                                 ReporteProducto.objects.create(
                                     reporte=reporte,
@@ -355,7 +368,11 @@ def gestionar_reportes(request):
                                     if cantidad_final <= 0:
                                         raise ValueError('La cantidad debe ser mayor a 0.')
                                 else:
-                                    cantidad_final = int(cantidad) if cantidad and cantidad != '' else None
+                                    # Para tipos inventario y ventas, la cantidad es opcional
+                                    try:
+                                        cantidad_final = int(cantidad) if cantidad and cantidad != '' else None
+                                    except ValueError:
+                                        raise ValueError('La cantidad debe ser un número válido.')
                                 
                                 ReporteProducto.objects.create(
                                     reporte=reporte,
@@ -443,7 +460,8 @@ def gestionar_reportes(request):
                     productos_data.append({
                         'id': rp.producto.id,
                         'nombre': rp.producto.nombre,
-                        'cantidad': rp.cantidad,
+                        'producto_nombre': rp.producto.nombre,
+                        'cantidad': rp.cantidad if rp.cantidad is not None else '',
                         'observaciones': rp.observaciones or ''
                     })
                 
@@ -489,7 +507,8 @@ def obtener_reporte_detalle(request, reporte_id):
             productos_data.append({
                 'producto_id': rp.producto.id,
                 'producto_nombre': rp.producto.nombre,
-                'cantidad': rp.cantidad,
+                'nombre': rp.producto.nombre,
+                'cantidad': rp.cantidad if rp.cantidad is not None else '',
                 'observaciones': rp.observaciones or ''
             })
         
@@ -497,6 +516,7 @@ def obtener_reporte_detalle(request, reporte_id):
             'success': True,
             'reporte': {
                 'id': reporte.id,
+                'nombre': reporte.nombre_reporte,
                 'nombre_reporte': reporte.nombre_reporte,
                 'descripcion': reporte.descripcion,
                 'tipo': reporte.tipo,

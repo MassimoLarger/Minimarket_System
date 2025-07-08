@@ -302,10 +302,11 @@ class ReporteProducto(models.Model):
         
         if not is_new:
             old_instance = ReporteProducto.objects.get(pk=self.pk)
-            old_cantidad = old_instance.cantidad
+            old_cantidad = old_instance.cantidad or 0
         
-        # Si es reporte de producto, no requiere cantidad
-        if self.reporte.tipo == 'producto':
+        # Los reportes de producto ahora pueden tener cantidad
+        # Solo se establece como None si no se proporciona cantidad
+        if self.reporte.tipo == 'producto' and self.cantidad == 0:
             self.cantidad = None
         
         super().save(*args, **kwargs)

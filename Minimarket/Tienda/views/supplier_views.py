@@ -10,36 +10,41 @@ from datetime import datetime, timedelta
 def is_superuser(user):
     return user.is_superuser
 
-def validar_rut_chileno(rut_completo):
-    import re
-    # Solo acepta formato XXXXXXXX-X
-    if not re.match(r"^[0-9]+[-|‐]{1}[0-9kK]{1}$", rut_completo):
+def validar_rut_chileno(rut, dv):
+    try:
+        # Convertir RUT a entero para validación
+        rut_int = int(str(rut))
+        
+        # Validar que el RUT esté en el rango válido para Chile
+        if rut_int < 1000000 or rut_int > 99999999:
+            return False
+            
+        # Calcular dígito verificador
+        def calcular_dv(rut_num):
+            rut_str = str(rut_num)
+            reversed_digits = rut_str[::-1]
+            factors = [2, 3, 4, 5, 6, 7]
+            sum_total = 0
+            
+            for i, digit in enumerate(reversed_digits):
+                factor = factors[i % 6]
+                sum_total += int(digit) * factor
+            
+            remainder = sum_total % 11
+            check_digit = 11 - remainder
+            
+            if check_digit == 11:
+                return '0'
+            elif check_digit == 10:
+                return 'K'
+            else:
+                return str(check_digit)
+        
+        dv_calculado = calcular_dv(rut_int)
+        return dv_calculado.upper() == str(dv).upper()
+        
+    except (ValueError, TypeError):
         return False
-    tmp = rut_completo.split('-')
-    if len(tmp) != 2:
-        return False
-    rut = tmp[0]
-    digv = tmp[1].upper()
-    def dv(T):
-        rut_str = str(T)
-        reversed_digits = rut_str[::-1]
-        factors = [2, 3, 4, 5, 6, 7]
-        sum_total = 0
-        
-        for i, digit in enumerate(reversed_digits):
-            factor = factors[i % 6]
-            sum_total += int(digit) * factor
-        
-        remainder = sum_total % 11
-        check_digit = 11 - remainder
-        
-        if check_digit == 11:
-            return '0'
-        elif check_digit == 10:
-            return 'K'
-        else:
-            return str(check_digit)
-    return dv(rut).upper() == digv
 
 @login_required
 def verify_password_providers(request):
@@ -105,31 +110,15 @@ def gestionar_proveedores(request):
                     raise ValueError('El RUT debe ser numérico.')
                 if not re.match(r'^[0-9kK]$', verify_digit):
                     raise ValueError('El dígito verificador debe ser un número o "K".')
-                rut_int = int(rut)
-                # Validar RUT chileno
-                def dv(T):
-                    rut_str = str(T)
-                    reversed_digits = rut_str[::-1]
-                    factors = [2, 3, 4, 5, 6, 7]
-                    sum_total = 0
-                    
-                    for i, digit in enumerate(reversed_digits):
-                        factor = factors[i % 6]
-                        sum_total += int(digit) * factor
-                    
-                    remainder = sum_total % 11
-                    check_digit = 11 - remainder
-                    
-                    if check_digit == 11:
-                        return '0'
-                    elif check_digit == 10:
-                        return 'K'
-                    else:
-                        return str(check_digit)
-                dv_result = dv(rut_int).upper()
-                verify_digit_upper = verify_digit.upper()
-                if dv_result != verify_digit_upper:
+                
+                # Validar RUT chileno usando la función centralizada
+                if not validar_rut_chileno(rut, verify_digit):
                     raise ValueError('El RUT ingresado no es válido para Chile.')
+                
+                # Verificar que el RUT no esté duplicado
+                rut_int = int(rut)
+                if Proveedor.objects.filter(rut=rut_int, verify_digit=verify_digit.upper()).exists():
+                    raise ValueError('Ya existe un proveedor con este RUT.')
                 direccion = request.POST.get('direccion', '').strip()
                 direccion_is_null = not direccion
                 if direccion == '':
@@ -187,30 +176,20 @@ def gestionar_proveedores(request):
                     raise ValueError('El RUT debe ser numérico.')
                 if not re.match(r'^[0-9kK]$', verify_digit):
                     raise ValueError('El dígito verificador debe ser un número o "K".')
-                rut_int = int(rut)
-                def dv(T):
-                    rut_str = str(T)
-                    reversed_digits = rut_str[::-1]
-                    factors = [2, 3, 4, 5, 6, 7]
-                    sum_total = 0
-                    
-                    for i, digit in enumerate(reversed_digits):
-                        factor = factors[i % 6]
-                        sum_total += int(digit) * factor
-                    
-                    remainder = sum_total % 11
-                    check_digit = 11 - remainder
-                    
-                    if check_digit == 11:
-                        return '0'
-                    elif check_digit == 10:
-                        return 'K'
-                    else:
-                        return str(check_digit)
-                dv_result = dv(rut_int).upper()
-                verify_digit_upper = verify_digit.upper()
-                if dv_result != verify_digit_upper:
+                
+                # Validar RUT chileno usando la función centralizada
+                if not validar_rut_chileno(rut, verify_digit):
                     raise ValueError('El RUT ingresado no es válido para Chile.')
+                
+                # Verificar que el RUT no esté duplicado (excluyendo el proveedor actual)
+                rut_int = int(rut)
+                rut_duplicado = Proveedor.objects.filter(
+                    rut=rut_int, 
+                    verify_digit=verify_digit.upper()
+                ).exclude(id=proveedor.id)
+                
+                if rut_duplicado.exists():
+                    raise ValueError('Ya existe otro proveedor con este RUT.')
                 direccion_is_null = not direccion
                 telefono_is_null = not telefono
                 if direccion and direccion.isspace():

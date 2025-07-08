@@ -54,7 +54,11 @@ def gestionar_alertas(request):
                     
                     if not nombre or not tipo or not mensaje:
                         raise ValueError("Todos los campos obligatorios deben estar completos")
-                    
+                        
+                    # Manejo de errores en caso de ingresar un numero muy grande en el parametro de dias de anticipación
+                    if int(dias_anticipacion) > 1000 :
+                        raise ValueError("El valor es demasiado largo, debe ser menor a 1000 días")
+                        
                     # Validar campos obligatorios según el tipo
                     if tipo == 'stock_bajo' and not umbral_stock and not alerta.umbral_stock:
                         raise ValueError("El umbral de stock es obligatorio para alertas de stock bajo")
