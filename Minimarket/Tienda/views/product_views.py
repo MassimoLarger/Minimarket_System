@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import JsonResponse
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from ..models import Producto, DetalleVenta, LoteProducto, Categoria
 
 def is_superuser(user):
@@ -21,8 +21,6 @@ def gestionar_productos(request):
                 nombre = request.POST.get('nombre', '').strip()
                 if not nombre:
                     raise ValueError('El nombre del producto no puede estar vacío o solo contener espacios.')
-                if Producto.objects.filter(nombre__iexact=nombre).exists():
-                    raise ValueError('Ya existe un producto con ese nombre.')
                 codigo_barras = request.POST.get('codigo_barras', '').strip()
                 if not codigo_barras.isdigit():
                     raise ValueError('El código de barras debe ser un número entero.')
@@ -45,6 +43,35 @@ def gestionar_productos(request):
                         }
                     })
                 messages.success(request, 'Producto añadido correctamente.')
+            except IntegrityError as e:
+                error_message = str(e)
+                if 'UNIQUE constraint failed' in error_message:
+                    if 'nombre' in error_message:
+                        custom_message = 'Ya existe un producto con este nombre. Por favor, ingrese un nombre diferente.'
+                        field = 'nombre'
+                    elif 'codigo_barras' in error_message:
+                        custom_message = 'Ya existe un producto con este código de barras. Por favor, ingrese un código diferente.'
+                        field = 'codigo_barras'
+                    else:
+                        custom_message = 'Este valor ya existe. Por favor, ingrese un valor diferente.'
+                        field = 'unknown'
+                    
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': False,
+                            'message': custom_message,
+                            'error_type': 'unique_constraint',
+                            'field': field
+                        }, status=400)
+                    else:
+                        messages.error(request, custom_message)
+                else:
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': False,
+                            'message': str(e)
+                        }, status=400)
+                    messages.error(request, f'Error al añadir producto: {e}')
             except Exception as e:
                 if is_ajax:
                     return JsonResponse({
@@ -58,8 +85,6 @@ def gestionar_productos(request):
                 nombre = request.POST.get('nombre', '').strip()
                 if not nombre:
                     raise ValueError('El nombre del producto no puede estar vacío o solo contener espacios.')
-                if Producto.objects.filter(nombre__iexact=nombre).exclude(id=producto_id).exists():
-                    raise ValueError('Ya existe un producto con ese nombre.')
                 codigo_barras = request.POST.get('codigo_barras', '').strip()
                 if not codigo_barras.isdigit():
                     raise ValueError('El código de barras debe ser un número entero.')
@@ -77,6 +102,35 @@ def gestionar_productos(request):
                         'message': f'Producto "{producto.nombre}" actualizado correctamente.'
                     })
                 messages.success(request, f'Producto "{producto.nombre}" actualizado correctamente.')
+            except IntegrityError as e:
+                error_message = str(e)
+                if 'UNIQUE constraint failed' in error_message:
+                    if 'nombre' in error_message:
+                        custom_message = 'Ya existe un producto con este nombre. Por favor, ingrese un nombre diferente.'
+                        field = 'nombre'
+                    elif 'codigo_barras' in error_message:
+                        custom_message = 'Ya existe un producto con este código de barras. Por favor, ingrese un código diferente.'
+                        field = 'codigo_barras'
+                    else:
+                        custom_message = 'Este valor ya existe. Por favor, ingrese un valor diferente.'
+                        field = 'unknown'
+                    
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': False,
+                            'message': custom_message,
+                            'error_type': 'unique_constraint',
+                            'field': field
+                        }, status=400)
+                    else:
+                        messages.error(request, custom_message)
+                else:
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': False,
+                            'message': str(e)
+                        }, status=400)
+                    messages.error(request, f'Error al actualizar producto: {e}')
             except Exception as e:
                 if is_ajax:
                     return JsonResponse({

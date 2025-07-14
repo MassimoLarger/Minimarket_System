@@ -333,12 +333,40 @@
             });
         }
 
+        // Agregar eventos para evitar validación al cerrar modal
+        document.querySelector('#nuevoProductoModal .btn-close').addEventListener('click', function(e) {
+            e.preventDefault();
+            formProducto.dataset.closing = 'true';
+            formProducto.classList.remove('was-validated');
+            // Cerrar el modal manualmente
+            nuevoProductoModal.hide();
+        });
+        
+        document.querySelector('#nuevoProductoModal [data-bs-dismiss="modal"]').addEventListener('click', function(e) {
+            e.preventDefault();
+            formProducto.dataset.closing = 'true';
+            formProducto.classList.remove('was-validated');
+            // Cerrar el modal manualmente
+            nuevoProductoModal.hide();
+        });
+        
+        document.getElementById('nuevoProductoModal').addEventListener('hidden.bs.modal', function() {
+            formProducto.reset();
+            formProducto.classList.remove('was-validated');
+            formProducto.dataset.closing = 'false';
+        });
+
         // Configurar envío del formulario
         formProducto.addEventListener('submit', function(e) {
             e.preventDefault();
-            if (!this.checkValidity()) {
-                e.stopPropagation();
-                this.classList.add('was-validated');
+            
+            // Evitar validación si se está cerrando el modal
+            if (formProducto.dataset.closing === 'true') {
+                return;
+            }
+            
+            // Usar el sistema de validación personalizado
+            if (!validateSpecificForm('form-producto')) {
                 return;
             }
             const formData = new FormData(this);
@@ -362,7 +390,11 @@
                     showSwalSuccess(data.message || 'Producto guardado correctamente');
                     setTimeout(() => location.reload(), 1200);
                 } else {
-                    showSwalError(data.message || data.error || 'Error al guardar el producto');
+                    if (data.error_type === 'unique_constraint') {
+                        showUniqueConstraintError(data.message, data.field);
+                    } else {
+                        showSwalError(data.message || data.error || 'Error al guardar el producto');
+                    }
                 }
             })
             .catch(error => {

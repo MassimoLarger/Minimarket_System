@@ -83,6 +83,9 @@ USE_TZ = True
 
 # Archivos estáticos
 STATIC_URL = 'static/'
+STATICFILES_DIRS = [
+    BASE_DIR / 'Tienda' / 'static',
+]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

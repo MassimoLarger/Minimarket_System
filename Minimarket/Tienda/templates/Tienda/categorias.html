@@ -229,11 +229,42 @@
             });
         }
 
+        // Agregar eventos para evitar validación al cerrar modal
+        document.querySelector('#nuevaCategoriaModal .btn-close').addEventListener('click', function(e) {
+            e.preventDefault();
+            const form = document.getElementById('form-categoria');
+            form.dataset.closing = 'true';
+            form.classList.remove('was-validated');
+            // Cerrar el modal manualmente
+            nuevaCategoriaModal.hide();
+        });
+        
+        document.querySelector('#nuevaCategoriaModal [data-bs-dismiss="modal"]').addEventListener('click', function(e) {
+            e.preventDefault();
+            const form = document.getElementById('form-categoria');
+            form.dataset.closing = 'true';
+            form.classList.remove('was-validated');
+            // Cerrar el modal manualmente
+            nuevaCategoriaModal.hide();
+        });
+        
+        document.getElementById('nuevaCategoriaModal').addEventListener('hidden.bs.modal', function() {
+            const form = document.getElementById('form-categoria');
+            form.reset();
+            form.classList.remove('was-validated');
+            form.dataset.closing = 'false';
+        });
+
         formCategoria.addEventListener('submit', function(e) {
             e.preventDefault();
-            if (!this.checkValidity()) {
-                e.stopPropagation();
-                this.classList.add('was-validated');
+            
+            // Evitar validación si se está cerrando el modal
+            if (formCategoria.dataset.closing === 'true') {
+                return;
+            }
+            
+            // Usar el sistema de validación personalizado
+            if (!validateSpecificForm('form-categoria')) {
                 return;
             }
             const formData = new FormData(this);
@@ -257,7 +288,11 @@
                     showSwalSuccess(data.message || 'Categoría guardada con éxito');
                     setTimeout(() => location.reload(), 1200);
                 } else {
-                    showSwalError(data.message || data.error || 'Error al guardar la categoría');
+                    if (data.error_type === 'unique_constraint') {
+                        showUniqueConstraintError(data.message, data.field);
+                    } else {
+                        showSwalError(data.message || data.error || 'Error al guardar la categoría');
+                    }
                 }
             })
             .catch(error => {

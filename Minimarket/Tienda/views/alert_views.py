@@ -5,6 +5,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.db import transaction
 from django.contrib.auth import authenticate
+from django.db import IntegrityError
 from datetime import timedelta
 from ..models import Alert, Producto, OfertaProducto, OfertaVencimiento, LoteProducto
 
@@ -50,20 +51,24 @@ def gestionar_alertas(request):
                     oferta_producto_id = request.POST.get('oferta_producto_id')
                     oferta_vencimiento_id = request.POST.get('oferta_vencimiento_id')
                     umbral_stock = request.POST.get('umbral_stock')
-                    dias_anticipacion = request.POST.get('dias_anticipacion')
+                    
+                    # Manejar días de anticipación - buscar en los campos específicos
+                    dias_anticipacion = None
+                    dias_anticipacion_venc = request.POST.get('dias_anticipacion_venc', '').strip()
+                    dias_anticipacion_oferta = request.POST.get('dias_anticipacion_oferta', '').strip()
+                    
+                    # Determinar qué campo usar según el tipo
+                    if tipo == 'proximo_vencer' and dias_anticipacion_venc:
+                        dias_anticipacion = dias_anticipacion_venc
+                    elif tipo == 'oferta_terminando' and dias_anticipacion_oferta:
+                        dias_anticipacion = dias_anticipacion_oferta
                     
                     if not nombre or not tipo or not mensaje:
                         raise ValueError("Todos los campos obligatorios deben estar completos")
                         
                     # Manejo de errores en caso de ingresar un numero muy grande en el parametro de dias de anticipación
-                    if int(dias_anticipacion) > 1000 :
+                    if dias_anticipacion and int(dias_anticipacion) > 1000 :
                         raise ValueError("El valor es demasiado largo, debe ser menor a 1000 días")
-                        
-                    # Validar campos obligatorios según el tipo
-                    if tipo == 'stock_bajo' and not umbral_stock and not alerta.umbral_stock:
-                        raise ValueError("El umbral de stock es obligatorio para alertas de stock bajo")
-                    if tipo in ['proximo_vencer', 'oferta_terminando'] and not dias_anticipacion and not alerta.dias_anticipacion:
-                        raise ValueError("Los días de anticipación son obligatorios para este tipo de alerta")
                     
                     # Crear la alerta
                     alerta = Alert(
@@ -73,22 +78,28 @@ def gestionar_alertas(request):
                     )
                     
                     # Asignar campos específicos según el tipo
-                    if umbral_stock:
-                        try:
-                            alerta.umbral_stock = int(umbral_stock)
-                        except ValueError:
-                            raise ValueError("El umbral de stock debe ser un número válido")
-                    if dias_anticipacion:
-                         try:
-                             dias_anticipacion_int = int(dias_anticipacion)
-                             if dias_anticipacion_int <= 0 or dias_anticipacion_int > 365:
-                                 raise ValueError("Los días de anticipación deben estar entre 1 y 365")
-                             alerta.dias_anticipacion = dias_anticipacion_int
-                         except ValueError as e:
-                             if "invalid literal" in str(e):
-                                 raise ValueError("Los días de anticipación deben ser un número válido")
-                             else:
-                                 raise e
+                    if tipo == 'stock_bajo':
+                        if umbral_stock and umbral_stock.strip():
+                            try:
+                                alerta.umbral_stock = int(umbral_stock)
+                            except ValueError:
+                                raise ValueError("El umbral de stock debe ser un número válido")
+                        else:
+                            raise ValueError("El umbral de stock es obligatorio para alertas de stock bajo")
+                    elif tipo in ['proximo_vencer', 'oferta_terminando']:
+                        if dias_anticipacion and dias_anticipacion.strip():
+                            try:
+                                dias_anticipacion_int = int(dias_anticipacion)
+                                if dias_anticipacion_int <= 0 or dias_anticipacion_int > 365:
+                                    raise ValueError("Los días de anticipación deben estar entre 1 y 365")
+                                alerta.dias_anticipacion = dias_anticipacion_int
+                            except ValueError as e:
+                                if "invalid literal" in str(e):
+                                    raise ValueError("Los días de anticipación deben ser un número válido")
+                                else:
+                                    raise e
+                        else:
+                            raise ValueError("Los días de anticipación son obligatorios para este tipo de alerta")
                     
                     alerta.save()
                     
@@ -192,16 +203,15 @@ def gestionar_alertas(request):
                     
                     # Asignar campos específicos según el tipo ANTES de limpiar
                     if tipo == 'stock_bajo':
-                        if umbral_stock:
+                        if umbral_stock and umbral_stock.strip():
                             try:
                                 alerta.umbral_stock = int(umbral_stock)
                             except ValueError:
                                 raise ValueError("El umbral de stock debe ser un número válido")
-                        # Validar que tenga umbral_stock (del formulario o existente)
-                        if not umbral_stock and not alerta.umbral_stock:
+                        elif not alerta.umbral_stock:
                             raise ValueError("El umbral de stock es obligatorio para alertas de stock bajo")
                     elif tipo in ['proximo_vencer', 'oferta_terminando']:
-                        if dias_anticipacion:
+                        if dias_anticipacion and dias_anticipacion.strip():
                             try:
                                 dias_anticipacion_int = int(dias_anticipacion)
                                 if dias_anticipacion_int <= 0 or dias_anticipacion_int > 365:
@@ -212,8 +222,7 @@ def gestionar_alertas(request):
                                     raise ValueError("Los días de anticipación deben ser un número válido")
                                 else:
                                     raise e
-                        # Validar que tenga dias_anticipacion (del formulario o existente)
-                        if not dias_anticipacion and not alerta.dias_anticipacion:
+                        elif not alerta.dias_anticipacion:
                             raise ValueError("Los días de anticipación son obligatorios para este tipo de alerta")
                     
                     # Limpiar campos específicos que no corresponden al tipo actual DESPUÉS de asignar
@@ -275,6 +284,26 @@ def gestionar_alertas(request):
                     messages.info(request, f'{len(alertas_activadas)} alertas verificadas')
                     return redirect('gestionar_alertas')
         
+        except IntegrityError as e:
+            error_message = str(e)
+            if 'UNIQUE constraint failed' in error_message and 'nombre' in error_message:
+                custom_message = 'Este valor ya existe. Por favor, ingrese un valor diferente.'
+                if is_ajax:
+                    return JsonResponse({
+                        'success': False, 
+                        'message': custom_message,
+                        'error_type': 'unique_constraint',
+                        'field': 'nombre'
+                    })
+                else:
+                    messages.error(request, custom_message)
+                    return redirect('gestionar_alertas')
+            else:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'message': str(e)})
+                else:
+                    messages.error(request, f'Error: {str(e)}')
+                    return redirect('gestionar_alertas')
         except Exception as e:
             if is_ajax:
                 return JsonResponse({'success': False, 'message': str(e)})

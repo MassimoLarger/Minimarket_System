@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import JsonResponse
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.contrib.auth import authenticate
 from django.utils import timezone
 from ..models import Reporte, ReporteProducto, Producto
@@ -107,9 +107,7 @@ def gestionar_reportes(request):
                     if not tipo:
                         raise ValueError('Debe seleccionar un tipo de reporte.')
                     
-                    # Verificar si ya existe un reporte con el mismo nombre
-                    if Reporte.objects.filter(nombre_reporte__iexact=nombre_reporte).exists():
-                        raise ValueError('Ya existe un reporte con ese nombre.')
+                    # La validación de unicidad se manejará con IntegrityError
                     
                     # Crear el reporte
                     reporte = Reporte.objects.create(
@@ -235,6 +233,27 @@ def gestionar_reportes(request):
                     else:
                         messages.success(request, f'Reporte "{nombre_reporte}" creado exitosamente.')
                         
+            except IntegrityError as e:
+                error_message = str(e)
+                if 'UNIQUE constraint failed' in error_message and 'nombre_reporte' in error_message:
+                    custom_message = 'Ya existe un reporte con este nombre. Por favor, ingrese un nombre diferente.'
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': False,
+                            'message': custom_message,
+                            'error_type': 'unique_constraint',
+                            'field': 'nombre_reporte'
+                        })
+                    else:
+                        messages.error(request, custom_message)
+                else:
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': False,
+                            'message': f'Error al crear el reporte: {str(e)}'
+                        })
+                    else:
+                        messages.error(request, f'Error al crear el reporte: {str(e)}')
             except Exception as e:
                 if is_ajax:
                     return JsonResponse({
@@ -262,9 +281,7 @@ def gestionar_reportes(request):
                     if not tipo:
                         raise ValueError('Debe seleccionar un tipo de reporte.')
                     
-                    # Verificar si ya existe otro reporte con el mismo nombre
-                    if Reporte.objects.filter(nombre_reporte__iexact=nombre_reporte).exclude(id=reporte_id).exists():
-                        raise ValueError('Ya existe otro reporte con ese nombre.')
+                    # La validación de unicidad se manejará con IntegrityError
                     
                     reporte.nombre = nombre_reporte
                     reporte.descripcion = descripcion
@@ -389,6 +406,27 @@ def gestionar_reportes(request):
                     else:
                         messages.success(request, f'Reporte "{nombre_reporte}" actualizado exitosamente.')
                         
+            except IntegrityError as e:
+                error_message = str(e)
+                if 'UNIQUE constraint failed' in error_message and 'nombre_reporte' in error_message:
+                    custom_message = 'Ya existe un reporte con este nombre. Por favor, ingrese un nombre diferente.'
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': False,
+                            'message': custom_message,
+                            'error_type': 'unique_constraint',
+                            'field': 'nombre_reporte'
+                        })
+                    else:
+                        messages.error(request, custom_message)
+                else:
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': False,
+                            'message': f'Error al actualizar el reporte: {str(e)}'
+                        })
+                    else:
+                        messages.error(request, f'Error al actualizar el reporte: {str(e)}')
             except Exception as e:
                 if is_ajax:
                     return JsonResponse({

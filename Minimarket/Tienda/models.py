@@ -2,14 +2,14 @@ from django.db import models
 from django.contrib.auth.models import User
 
 class Minimercado(models.Model):
-    nombre_minimercado = models.CharField(max_length=100)
+    nombre_minimercado = models.CharField(max_length=100, unique=True)
     fecha_creacion = models.DateField(auto_now_add=True)
     
     def __str__(self):
         return f"{self.nombre_minimercado}"
 
 class Proveedor(models.Model):
-    nombre_proveedor = models.CharField(max_length=100)
+    nombre_proveedor = models.CharField(max_length=100, unique=True)
     rut = models.PositiveIntegerField(unique=True)
     verify_digit = models.CharField(max_length=1, choices=[(str(i), str(i)) for i in range(10)] + [('K', 'K'), ('k', 'k')])
     direccion = models.CharField(max_length=200)
@@ -25,8 +25,8 @@ class Categoria(models.Model):
         return self.nombre
 
 class Producto(models.Model):
-    nombre = models.CharField(max_length=100)
-    codigo_barras = models.PositiveIntegerField(default=0)
+    nombre = models.CharField(max_length=100, unique=True)
+    codigo_barras = models.PositiveIntegerField(default=0, unique=True)
     stock = models.PositiveIntegerField(default=0)
     precio = models.PositiveIntegerField(default=0)
     costo = models.PositiveIntegerField(default=0)
@@ -71,7 +71,7 @@ class SeccionBodega(models.Model):
         ('rectangulo', 'Rectángulo'),
     ]
     
-    nombre = models.CharField(max_length=100)
+    nombre = models.CharField(max_length=100, unique=True)
     descripcion = models.TextField(blank=True, null=True)
     tipo_forma = models.CharField(max_length=20, choices=TIPO_FORMA_CHOICES, default='rectangulo')
     
@@ -159,7 +159,7 @@ class DetalleVenta(models.Model):
         return f"Detalle Venta #{self.venta.id} - {self.producto.nombre} x{self.cantidad}"
 
 class OfertaProducto(models.Model):
-    nombre = models.CharField(max_length=100)
+    nombre = models.CharField(max_length=100, unique=True)
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField(null=True, blank=True)
     descuento_porcentaje = models.PositiveIntegerField(default=0)
@@ -177,7 +177,7 @@ class OfertaProducto(models.Model):
         return precio_original
 
 class OfertaVencimiento(models.Model):
-    nombre = models.CharField(max_length=100)
+    nombre = models.CharField(max_length=100, unique=True)
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField(null=True, blank=True)
     descuento_porcentaje = models.PositiveIntegerField(default=0)
@@ -207,7 +207,7 @@ class Alert(models.Model):
         ('desactivada', 'Desactivada'),
     ]
     
-    nombre = models.CharField(max_length=200)
+    nombre = models.CharField(max_length=200, unique=True)
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
     mensaje = models.TextField()
     estado = models.CharField(max_length=15, choices=ESTADO_CHOICES, default='activa')
@@ -256,7 +256,7 @@ class Reporte(models.Model):
         ('ventas', 'Reporte de Ventas'),
     ]
     
-    nombre_reporte = models.CharField(max_length=200)
+    nombre_reporte = models.CharField(max_length=200, unique=True)
     descripcion = models.TextField()
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
     fecha_creacion = models.DateTimeField(auto_now_add=True)

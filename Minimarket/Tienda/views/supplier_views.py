@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import JsonResponse
 from django.contrib.auth import authenticate
+from django.db import IntegrityError
 from ..models import Proveedor, Lote, Registro_compra_proveedor
 import re
 from datetime import datetime, timedelta
@@ -115,10 +116,7 @@ def gestionar_proveedores(request):
                 if not validar_rut_chileno(rut, verify_digit):
                     raise ValueError('El RUT ingresado no es válido para Chile.')
                 
-                # Verificar que el RUT no esté duplicado
                 rut_int = int(rut)
-                if Proveedor.objects.filter(rut=rut_int, verify_digit=verify_digit.upper()).exists():
-                    raise ValueError('Ya existe un proveedor con este RUT.')
                 direccion = request.POST.get('direccion', '').strip()
                 direccion_is_null = not direccion
                 if direccion == '':
@@ -145,6 +143,35 @@ def gestionar_proveedores(request):
                         }
                     })
                 messages.success(request, 'Proveedor añadido correctamente.')
+            except IntegrityError as e:
+                error_message = str(e)
+                if 'UNIQUE constraint failed' in error_message:
+                    if 'nombre_proveedor' in error_message:
+                        custom_message = 'Ya existe un proveedor con este nombre. Por favor, ingrese un nombre diferente.'
+                        field = 'nombre_proveedor'
+                    elif 'rut' in error_message:
+                        custom_message = 'Ya existe un proveedor con este RUT. Por favor, ingrese un RUT diferente.'
+                        field = 'rut'
+                    else:
+                        custom_message = 'Este valor ya existe. Por favor, ingrese un valor diferente.'
+                        field = 'unknown'
+                    
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': False,
+                            'message': custom_message,
+                            'error_type': 'unique_constraint',
+                            'field': field
+                        }, status=400)
+                    else:
+                        messages.error(request, custom_message)
+                else:
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': False,
+                            'message': str(e)
+                        }, status=400)
+                    messages.error(request, f'Error al añadir proveedor: {e}')
             except Exception as e:
                 if is_ajax:
                     return JsonResponse({
@@ -152,11 +179,6 @@ def gestionar_proveedores(request):
                         'message': str(e)
                     }, status=400)
                 messages.error(request, f'Error al añadir proveedor: {e}')
-                if is_ajax:
-                    return JsonResponse({
-                        'success': False,
-                        'message': f'Error al añadir proveedor: {e}'
-                    }, status=400)
         elif action == 'edit_proveedor' and proveedor_id:
             try:
                 proveedor = get_object_or_404(Proveedor, id=proveedor_id)
@@ -181,15 +203,7 @@ def gestionar_proveedores(request):
                 if not validar_rut_chileno(rut, verify_digit):
                     raise ValueError('El RUT ingresado no es válido para Chile.')
                 
-                # Verificar que el RUT no esté duplicado (excluyendo el proveedor actual)
                 rut_int = int(rut)
-                rut_duplicado = Proveedor.objects.filter(
-                    rut=rut_int, 
-                    verify_digit=verify_digit.upper()
-                ).exclude(id=proveedor.id)
-                
-                if rut_duplicado.exists():
-                    raise ValueError('Ya existe otro proveedor con este RUT.')
                 direccion_is_null = not direccion
                 telefono_is_null = not telefono
                 if direccion and direccion.isspace():
@@ -210,6 +224,35 @@ def gestionar_proveedores(request):
                         'message': f'Proveedor "{proveedor.nombre_proveedor}" actualizado correctamente.'
                     })
                 messages.success(request, f'Proveedor "{proveedor.nombre_proveedor}" actualizado correctamente.')
+            except IntegrityError as e:
+                error_message = str(e)
+                if 'UNIQUE constraint failed' in error_message:
+                    if 'nombre_proveedor' in error_message:
+                        custom_message = 'Ya existe un proveedor con este nombre. Por favor, ingrese un nombre diferente.'
+                        field = 'nombre_proveedor'
+                    elif 'rut' in error_message:
+                        custom_message = 'Ya existe un proveedor con este RUT. Por favor, ingrese un RUT diferente.'
+                        field = 'rut'
+                    else:
+                        custom_message = 'Este valor ya existe. Por favor, ingrese un valor diferente.'
+                        field = 'unknown'
+                    
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': False,
+                            'message': custom_message,
+                            'error_type': 'unique_constraint',
+                            'field': field
+                        }, status=400)
+                    else:
+                        messages.error(request, custom_message)
+                else:
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': False,
+                            'message': str(e)
+                        }, status=400)
+                    messages.error(request, f'Error al actualizar proveedor: {e}')
             except Exception as e:
                 if is_ajax:
                     return JsonResponse({
@@ -217,11 +260,6 @@ def gestionar_proveedores(request):
                         'message': str(e)
                     }, status=400)
                 messages.error(request, f'Error al actualizar proveedor: {e}')
-                if is_ajax:
-                    return JsonResponse({
-                        'success': False,
-                        'message': f'Error al actualizar proveedor: {e}'
-                    }, status=400)
         elif action == 'delete_proveedor' and proveedor_id:
             try:
                 proveedor = Proveedor.objects.filter(id=proveedor_id).first()

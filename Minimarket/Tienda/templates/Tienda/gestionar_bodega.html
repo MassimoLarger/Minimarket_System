@@ -431,63 +431,10 @@ function actualizarSeccionSeleccionada() {
         return;
     }
     
-    // Validar nombre
+    // Las validaciones se manejan por el sistema de validación personalizado
     const nombre = document.getElementById('nombreSeccion').value;
-    
-    if (!nombre || nombre.trim() === '') {
-        Swal.fire({
-            icon: 'error',
-            title: 'Error de validación',
-            text: 'El nombre de la sección no puede estar vacío o contener solo espacios',
-            confirmButtonColor: '#e74c3c'
-        });
-        return;
-    }
-    
-    // Validar dimensiones
     const ancho = parseInt(document.getElementById('anchoSeccion').value);
     const alto = parseInt(document.getElementById('altoSeccion').value);
-    
-    if (ancho <= 0 || isNaN(ancho)) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Error de validación',
-            text: 'El ancho debe ser mayor a 0',
-            confirmButtonColor: '#e74c3c'
-        });
-        return;
-    }
-    
-    if (alto <= 0 || isNaN(alto)) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Error de validación',
-            text: 'El alto debe ser mayor a 0',
-            confirmButtonColor: '#e74c3c'
-        });
-        return;
-    }
-    
-    // Validar que no exceda las dimensiones del mapa de bodega
-    if (ancho > 800) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Error de validación',
-            text: 'El ancho no puede exceder 800px (tamaño máximo del mapa de bodega)',
-            confirmButtonColor: '#e74c3c'
-        });
-        return;
-    }
-    
-    if (alto > 580) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Error de validación',
-            text: 'El alto no puede exceder 580px (tamaño máximo del mapa de bodega)',
-            confirmButtonColor: '#e74c3c'
-        });
-        return;
-    }
     
     const data = {
         nombre: nombre.trim(),

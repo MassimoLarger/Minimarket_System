@@ -528,6 +528,11 @@ document.addEventListener('DOMContentLoaded', function() {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             
+            // Usar el sistema de validación personalizado
+            if (!validateSpecificForm(formId)) {
+                return;
+            }
+            
             const submitBtn = form.querySelector('button[type="submit"]');
             const originalText = submitBtn.innerHTML;
             submitBtn.disabled = true;

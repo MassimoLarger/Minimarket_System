@@ -664,61 +664,55 @@
             });
         }
         
+        // Agregar eventos para evitar validación al cerrar modal
+         document.querySelector('#addOfertaModal .btn-close').addEventListener('click', function(e) {
+             e.preventDefault();
+             const form = document.getElementById('ofertaForm');
+             form.dataset.closing = 'true';
+             form.classList.remove('was-validated');
+             // Cerrar el modal manualmente
+             const modal = bootstrap.Modal.getInstance(document.getElementById('addOfertaModal'));
+             if (modal) modal.hide();
+         });
+         
+         document.querySelector('#addOfertaModal [data-bs-dismiss="modal"]').addEventListener('click', function(e) {
+             e.preventDefault();
+             const form = document.getElementById('ofertaForm');
+             form.dataset.closing = 'true';
+             form.classList.remove('was-validated');
+             // Cerrar el modal manualmente
+             const modal = bootstrap.Modal.getInstance(document.getElementById('addOfertaModal'));
+             if (modal) modal.hide();
+         });
+         
+         document.getElementById('addOfertaModal').addEventListener('hidden.bs.modal', function() {
+             const form = document.getElementById('ofertaForm');
+             form.reset();
+             form.classList.remove('was-validated');
+             form.dataset.closing = 'false';
+             resetModal();
+         });
+
         // Manejar envío del formulario
         function handleOfertaSubmit(e) {
             e.preventDefault();
             
-            if (!e.target.checkValidity()) {
-                e.stopPropagation();
-                e.target.classList.add('was-validated');
+            // Evitar validación si se está cerrando el modal
+            if (document.getElementById('ofertaForm').dataset.closing === 'true') {
+                return;
+            }
+            
+            // Usar el sistema de validación personalizado
+            if (!validateSpecificForm('ofertaForm')) {
                 return;
             }
             
             const formData = new FormData(e.target);
             
-            // Validaciones adicionales
-            let tipoOferta = formData.get('tipo_oferta');
-            
-            // Si el campo está deshabilitado (modo edición), obtener el valor directamente del elemento
-            if (!tipoOferta) {
-                const tipoOfertaElement = document.getElementById('tipo_oferta');
-                if (tipoOfertaElement.disabled) {
-                    tipoOferta = tipoOfertaElement.value;
-                    // Agregar el valor al FormData para el envío
-                    formData.set('tipo_oferta', tipoOferta);
-                } else {
-                    showSwalError('Por favor selecciona un tipo de oferta');
-                    tipoOfertaElement.focus();
-                    return;
-                }
-            }
-            
-            if (tipoOferta === 'producto') {
-                const productos = formData.getAll('productos[]');
-                if (productos.length === 0) {
-                    showSwalError('Por favor selecciona al menos un producto');
-                    document.getElementById('productos').focus();
-                    return;
-                }
-            }
-            
-            if (tipoOferta === 'vencimiento') {
-                const diasAntes = formData.get('dias_antes_vencimiento');
-                if (!diasAntes || diasAntes < 1) {
-                    showSwalError('Por favor ingresa un número válido de días antes del vencimiento');
-                    document.getElementById('dias_antes_vencimiento').focus();
-                    return;
-                }
-            }
-            
-            // Validar fechas
-            const fechaInicio = new Date(formData.get('fecha_inicio'));
-            const fechaFin = formData.get('fecha_fin') ? new Date(formData.get('fecha_fin')) : null;
-            
-            if (fechaFin && fechaFin <= fechaInicio) {
-                showSwalError('La fecha de fin debe ser posterior a la fecha de inicio');
-                document.getElementById('fecha_fin').focus();
-                return;
+            // Si el campo tipo_oferta está deshabilitado (modo edición), agregar el valor al FormData
+            const tipoOfertaElement = document.getElementById('tipo_oferta');
+            if (tipoOfertaElement.disabled) {
+                formData.set('tipo_oferta', tipoOfertaElement.value);
             }
             
             // Mostrar indicador de carga

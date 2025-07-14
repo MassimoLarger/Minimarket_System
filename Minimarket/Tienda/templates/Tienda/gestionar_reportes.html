@@ -468,25 +468,16 @@ function showSwalError(message) {
 document.getElementById('formCrearReporte').addEventListener('submit', function(e) {
     e.preventDefault();
     
+    // Usar el sistema de validación personalizado
+    if (!validateSpecificForm('formCrearReporte')) {
+        return;
+    }
+    
     const tipo = document.getElementById('tipoReporte').value;
     const nombreReporte = document.getElementById('nombreReporte').value.trim();
     const descripcionReporte = document.getElementById('descripcionReporte').value.trim();
     
-    // Validaciones del lado del cliente
-    if (!nombreReporte) {
-        showSwalError('El nombre del reporte no puede estar vacío o solo contener espacios.');
-        return;
-    }
-    
-    if (!descripcionReporte) {
-        showSwalError('La descripción del reporte es obligatoria.');
-        return;
-    }
-    
-    if (!tipo) {
-        showSwalError('Debe seleccionar un tipo de reporte.');
-        return;
-    }
+    // Las validaciones básicas se manejan por el sistema de validación personalizado
     
     const formData = {
         action: 'crear_reporte',
@@ -511,11 +502,6 @@ document.getElementById('formCrearReporte').addEventListener('submit', function(
             const observaciones = observacionesInput.value;
             
             if (productoId && cantidad) {
-                if (parseInt(cantidad) <= 0) {
-                    showSwalError('Todas las cantidades deben ser números mayores a 0.');
-                    return;
-                }
-                
                 formData.productos.push({
                     producto_id: productoId,
                     cantidad: cantidad,
@@ -524,19 +510,7 @@ document.getElementById('formCrearReporte').addEventListener('submit', function(
             }
         }
         
-        // Validaciones
-        if (formData.productos.length === 0) {
-            showSwalError(`Para reportes de ${tipo}, debe agregar al menos un producto con cantidad.`);
-            return;
-        }
-        
-        // Verificar productos duplicados
-        const productosIds = formData.productos.map(p => p.producto_id);
-        const duplicados = productosIds.filter((id, index) => productosIds.indexOf(id) !== index);
-        if (duplicados.length > 0) {
-            showSwalError('No puede agregar el mismo producto múltiples veces.');
-            return;
-        }
+        // Los productos se validarán en el servidor
     }
     
     fetch('{% url "gestionar_reportes" %}', {
@@ -562,7 +536,11 @@ document.getElementById('formCrearReporte').addEventListener('submit', function(
             document.getElementById('camposProducto').style.display = 'none';
             setTimeout(() => location.reload(), 1500);
         } else {
-            showSwalError(data.message || 'Error al crear el reporte');
+            if (data.error_type === 'unique_constraint') {
+                showUniqueConstraintError(data.message, data.field);
+            } else {
+                showSwalError(data.message || 'Error al crear el reporte');
+            }
         }
     })
     .catch(error => {
@@ -799,29 +777,12 @@ function confirmarEditarReporte() {
     const descripcionReporte = document.getElementById('editDescripcionReporte').value.trim();
     const tipo = document.getElementById('editTipoReporte').value;
     
-    // Validaciones del lado del cliente
-    if (!nombreReporte) {
-        showSwalError('El nombre del reporte no puede estar vacío o solo contener espacios.');
-        return;
-    }
-    
-    if (!descripcionReporte) {
-        showSwalError('La descripción del reporte es obligatoria.');
-        return;
-    }
-    
+    // Las validaciones se manejan por el sistema de validación personalizado
     // Recopilar datos de productos
     const productos = [];
     if (tipo === 'perdida' || tipo === 'producto') {
         const productosContainer = document.getElementById('productosContainerEdit');
         const productosItems = productosContainer.querySelectorAll('.producto-item-edit');
-        
-        if (productosItems.length === 0) {
-            showSwalError(`Para reportes de ${tipo}, debe agregar al menos un producto.`);
-            return;
-        }
-        
-        const productosIds = [];
         
         for (let item of productosItems) {
             const productoSelect = item.querySelector('.producto-select-edit');
@@ -832,34 +793,13 @@ function confirmarEditarReporte() {
             const cantidad = cantidadInput.value;
             const observaciones = observacionesInput.value.trim();
             
-            if (!productoId) {
-                showSwalError('Debe seleccionar un producto en todos los campos.');
-                return;
+            if (productoId && cantidad) {
+                productos.push({
+                    producto_id: productoId,
+                    cantidad: parseInt(cantidad),
+                    observaciones: observaciones
+                });
             }
-            
-            if (!cantidad || cantidad === '') {
-                showSwalError('Debe especificar la cantidad para todos los productos.');
-                return;
-            }
-            
-            const cantidadNum = parseInt(cantidad);
-            if (isNaN(cantidadNum) || cantidadNum <= 0) {
-                showSwalError('La cantidad debe ser un número mayor a 0.');
-                return;
-            }
-            
-            // Verificar productos duplicados
-            if (productosIds.includes(productoId)) {
-                showSwalError('No puede agregar el mismo producto múltiples veces.');
-                return;
-            }
-            productosIds.push(productoId);
-            
-            productos.push({
-                producto_id: productoId,
-                cantidad: cantidadNum,
-                observaciones: observaciones
-            });
         }
     }
     
@@ -892,7 +832,11 @@ function confirmarEditarReporte() {
             showSwalSuccess(data.message);
             setTimeout(() => location.reload(), 1500);
         } else {
-            showSwalError(data.message || 'Error al actualizar el reporte');
+            if (data.error_type === 'unique_constraint') {
+                showUniqueConstraintError(data.message, data.field);
+            } else {
+                showSwalError(data.message || 'Error al actualizar el reporte');
+            }
         }
     })
     .catch(error => {

@@ -278,12 +278,42 @@
             confirmButtonColor: '#d33'
         });
     }
+    // Agregar eventos para evitar validación al cerrar modal
+     document.querySelector('#nuevoProveedorModal .btn-close').addEventListener('click', function(e) {
+         e.preventDefault();
+         const form = document.getElementById('form-proveedor');
+         form.dataset.closing = 'true';
+         form.classList.remove('was-validated');
+         // Cerrar el modal manualmente
+         nuevoProveedorModal.hide();
+     });
+     
+     document.querySelector('#nuevoProveedorModal [data-bs-dismiss="modal"]').addEventListener('click', function(e) {
+         e.preventDefault();
+         const form = document.getElementById('form-proveedor');
+         form.dataset.closing = 'true';
+         form.classList.remove('was-validated');
+         // Cerrar el modal manualmente
+         nuevoProveedorModal.hide();
+     });
+     
+     document.getElementById('nuevoProveedorModal').addEventListener('hidden.bs.modal', function() {
+         const form = document.getElementById('form-proveedor');
+         form.reset();
+         form.classList.remove('was-validated');
+         form.dataset.closing = 'false';
+     });
+
     formProveedor.addEventListener('submit', function(e) {
         e.preventDefault();
-        if (!this.checkValidity()) {
-            e.stopPropagation();
-            this.classList.add('was-validated');
-            showSwalError('Por favor, completa correctamente todos los campos obligatorios.');
+        
+        // Evitar validación si se está cerrando el modal
+        if (document.getElementById('form-proveedor').dataset.closing === 'true') {
+            return;
+        }
+        
+        // Usar el sistema de validación personalizado
+        if (!validateSpecificForm('form-proveedor')) {
             return;
         }
         const formData = new FormData(this);
@@ -326,19 +356,16 @@
         })
         .then(data => {
             if (data.success) {
+                nuevoProveedorModal.hide();
                 showSwalSuccess(data.message);
-                setTimeout(function() { location.reload(); }, 1500);
+                setTimeout(() => location.reload(), 1200);
             } else {
-                let errorMsg = data.error || 'Ocurrió un error al agregar el proveedor.';
-                if (errorMsg === 'No puedes ingresar solo espacios en la dirección.') {
-                    showSwalError('No puedes ingresar solo espacios en la dirección.');
+                if (data.error_type === 'unique_constraint') {
+                    showUniqueConstraintError(data.message, data.field);
                 } else {
-                    showSwalError(errorMsg);
+                    showSwalError(data.message || 'Ocurrió un error al procesar la solicitud.');
                 }
             }
-            nuevoProveedorModal.hide();
-            setTimeout(() => location.reload(), 1200);
-            showSwalSuccess(data.message || 'Operación completada con éxito');
         })
         .catch(error => {
             showSwalError(error.message);

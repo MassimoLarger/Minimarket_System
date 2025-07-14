@@ -21,7 +21,7 @@
                                         <div class="mb-3">
                                             <label for="codigo_barras" class="form-label">Código de Barras</label>
                                             <div class="input-group">
-                                                <input type="text" name="codigo_barras" class="form-control" placeholder="Escanee o ingrese el código" required>
+                                                <input type="number" name="codigo_barras" class="form-control" placeholder="Escanee o ingrese el código" required>
                                                 <button class="btn btn-primary" type="submit" name="buscar_codigo"><i class="fas fa-search"></i></button>
                                             </div>
                                         </div>
@@ -313,12 +313,26 @@ setTimeout(function() {
 </script>
 {% endif %}
 
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 // Manejar el botón cancelar
 document.getElementById('btn-cancelar').addEventListener('click', function() {
-    if(confirm('¿Está seguro que desea cancelar esta venta? Todos los productos se eliminarán.')) {
-        window.location.href = "{% url 'nueva_venta' %}?cancelar=1";
-    }
+    Swal.fire({
+        title: '¿Cancelar venta?',
+        text: '¿Está seguro que desea cancelar esta venta? Todos los productos se eliminarán.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, cancelar venta',
+        cancelButtonText: 'No, continuar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = "{% url 'nueva_venta' %}?cancelar=1";
+        }
+        // Si se cancela, no hacer nada (no mostrar errores)
+    });
 });
 
 // Enfocar automáticamente el campo de código de barras al cargar
@@ -329,4 +343,5 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+{% endblock %}
 {% endblock %}

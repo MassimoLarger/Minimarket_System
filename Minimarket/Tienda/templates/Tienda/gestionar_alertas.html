@@ -166,24 +166,24 @@
                     <!-- Campos específicos por tipo -->
                     <div id="campos-stock" class="tipo-campos" style="display: none;">
                         <div class="mb-3">
-                            <label for="umbral_stock" class="form-label">Umbral de Stock</label>
-                            <input type="number" class="form-control" id="umbral_stock" name="umbral_stock" min="0" value="10" placeholder="Cantidad mínima de stock para activar la alerta">
+                            <label for="umbral_stock" class="form-label">Umbral de Stock *</label>
+                            <input type="number" class="form-control" id="umbral_stock" name="umbral_stock" min="1" required placeholder="Ej: 10 - Cantidad mínima de stock para activar la alerta">
                             <div class="form-text">La alerta se activará cuando cualquier producto tenga stock igual o menor a este valor.</div>
                         </div>
                     </div>
                     
                     <div id="campos-vencimiento" class="tipo-campos" style="display: none;">
                         <div class="mb-3">
-                            <label for="dias_anticipacion_venc" class="form-label">Días de Anticipación</label>
-                            <input type="number" class="form-control" id="dias_anticipacion_venc" name="dias_anticipacion" min="1" max="365" value="7" placeholder="Días antes del vencimiento">
+                            <label for="dias_anticipacion_venc" class="form-label">Días de Anticipación *</label>
+                            <input type="number" class="form-control" id="dias_anticipacion_venc" name="dias_anticipacion_venc" min="1" max="365" required placeholder="Ej: 7 - Días antes del vencimiento">
                             <div class="form-text">La alerta se activará cuando cualquier producto esté próximo a vencer en este número de días.</div>
                         </div>
                     </div>
                     
                     <div id="campos-oferta" class="tipo-campos" style="display: none;">
                         <div class="mb-3">
-                            <label for="dias_anticipacion_oferta" class="form-label">Días de Anticipación</label>
-                            <input type="number" class="form-control" id="dias_anticipacion_oferta" name="dias_anticipacion" min="1" max="365" value="3" placeholder="Días antes del fin">
+                            <label for="dias_anticipacion_oferta" class="form-label">Días de Anticipación *</label>
+                            <input type="number" class="form-control" id="dias_anticipacion_oferta" name="dias_anticipacion_oferta" min="1" max="365" required placeholder="Ej: 3 - Días antes del fin">
                             <div class="form-text">La alerta se activará cuando cualquier oferta esté próxima a terminar en este número de días.</div>
                         </div>
                     </div>
@@ -240,24 +240,24 @@
                     <!-- Campos específicos por tipo -->
                     <div id="edit-campos-stock" class="edit-tipo-campos" style="display: none;">
                         <div class="mb-3">
-                            <label for="edit_umbral_stock" class="form-label">Umbral de Stock</label>
-                            <input type="number" class="form-control" id="edit_umbral_stock" name="umbral_stock" min="0" placeholder="Cantidad mínima de stock para activar la alerta">
+                            <label for="edit_umbral_stock" class="form-label">Umbral de Stock *</label>
+                            <input type="number" class="form-control" id="edit_umbral_stock" name="umbral_stock" min="1" required placeholder="Cantidad mínima de stock para activar la alerta">
                             <div class="form-text">La alerta se activará cuando cualquier producto tenga stock igual o menor a este valor.</div>
                         </div>
                     </div>
                     
                     <div id="edit-campos-vencimiento" class="edit-tipo-campos" style="display: none;">
                         <div class="mb-3">
-                            <label for="edit_dias_anticipacion_venc" class="form-label">Días de Anticipación</label>
-                            <input type="number" class="form-control" id="edit_dias_anticipacion_venc" name="dias_anticipacion_venc" min="1" max="365" placeholder="Días antes del vencimiento">
+                            <label for="edit_dias_anticipacion_venc" class="form-label">Días de Anticipación *</label>
+                            <input type="number" class="form-control" id="edit_dias_anticipacion_venc" name="dias_anticipacion_venc" min="1" max="365" required placeholder="Días antes del vencimiento">
                             <div class="form-text">La alerta se activará cuando cualquier producto esté próximo a vencer en este número de días.</div>
                         </div>
                     </div>
                     
                     <div id="edit-campos-oferta" class="edit-tipo-campos" style="display: none;">
                         <div class="mb-3">
-                            <label for="edit_dias_anticipacion_oferta" class="form-label">Días de Anticipación</label>
-                            <input type="number" class="form-control" id="edit_dias_anticipacion_oferta" name="dias_anticipacion_oferta" min="1" max="365" placeholder="Días antes del fin">
+                            <label for="edit_dias_anticipacion_oferta" class="form-label">Días de Anticipación *</label>
+                            <input type="number" class="form-control" id="edit_dias_anticipacion_oferta" name="dias_anticipacion_oferta" min="1" max="365" required placeholder="Días antes del fin">
                             <div class="form-text">La alerta se activará cuando cualquier oferta esté próxima a terminar en este número de días.</div>
                         </div>
                     </div>
@@ -295,6 +295,22 @@ function showSwalError(message) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Limpiar formulario cuando se abre el modal de crear alerta
+    document.getElementById('crearAlertaModal').addEventListener('show.bs.modal', function() {
+        // Limpiar todos los campos del formulario
+        document.getElementById('formCrearAlerta').reset();
+        
+        // Ocultar todos los campos específicos
+        document.querySelectorAll('.tipo-campos').forEach(campo => {
+            campo.style.display = 'none';
+        });
+        
+        // Limpiar valores específicos
+        document.getElementById('umbral_stock').value = '';
+        document.getElementById('dias_anticipacion_venc').value = '';
+        document.getElementById('dias_anticipacion_oferta').value = '';
+    });
+    
     // Manejar cambio de tipo de alerta
     const tipoSelect = document.getElementById('tipo');
     const camposTipo = document.querySelectorAll('.tipo-campos');
@@ -304,6 +320,11 @@ document.addEventListener('DOMContentLoaded', function() {
         camposTipo.forEach(campo => {
             campo.style.display = 'none';
         });
+        
+        // Limpiar valores de campos específicos al cambiar tipo
+        document.getElementById('umbral_stock').value = '';
+        document.getElementById('dias_anticipacion_venc').value = '';
+        document.getElementById('dias_anticipacion_oferta').value = '';
         
         // Mostrar campos específicos según el tipo
         if (this.value === 'stock_bajo') {
@@ -318,6 +339,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Manejar envío del formulario
     document.getElementById('formCrearAlerta').addEventListener('submit', function(e) {
         e.preventDefault();
+        
+        // Usar el sistema de validación personalizado
+        if (!validateSpecificForm('formCrearAlerta')) {
+            return;
+        }
         
         const formData = new FormData(this);
         
@@ -335,7 +361,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 showSwalSuccess(data.message);
                 setTimeout(() => location.reload(), 2000);
             } else {
-                showSwalError(data.message);
+                // Verificar si es un error de unicidad
+                if (data.error_type === 'unique_constraint') {
+                    showUniqueConstraintError(data.message, data.field);
+                } else {
+                    showSwalError(data.message);
+                }
             }
         })
         .catch(error => {
@@ -486,6 +517,11 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('formEditarAlerta').addEventListener('submit', function(e) {
         e.preventDefault();
         
+        // Usar el sistema de validación personalizado
+        if (!validateSpecificForm('formEditarAlerta')) {
+            return;
+        }
+        
         const formData = new FormData(this);
         
         fetch('', {
@@ -505,7 +541,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     location.reload();
                 }, 2000);
             } else {
-                showSwalError(data.message);
+                // Verificar si es un error de unicidad
+                if (data.error_type === 'unique_constraint') {
+                    showUniqueConstraintError(data.message, data.field);
+                } else {
+                    showSwalError(data.message);
+                }
             }
         })
         .catch(error => {

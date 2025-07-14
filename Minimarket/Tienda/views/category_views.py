@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import JsonResponse
+from django.db import IntegrityError
 from ..models import Categoria, Producto
 
 def is_superuser(user):
@@ -19,12 +20,27 @@ def gestionar_categorias(request):
                 nombre = request.POST.get('nombre', '').strip()
                 if not nombre:
                     raise ValueError('El nombre de la categoría no puede estar vacío o solo contener espacios.')
-                if Categoria.objects.filter(nombre__iexact=nombre).exists():
-                    raise ValueError('Ya existe una categoría con ese nombre.')
                 categoria = Categoria.objects.create(nombre=nombre)
                 if is_ajax:
                     return JsonResponse({'success': True, 'message': 'Categoría añadida correctamente.', 'categoria': {'id': categoria.id, 'nombre': categoria.nombre}})
                 messages.success(request, 'Categoría añadida correctamente.')
+            except IntegrityError as e:
+                error_message = str(e)
+                if 'UNIQUE constraint failed' in error_message and 'nombre' in error_message:
+                    custom_message = 'Ya existe una categoría con este nombre. Por favor, ingrese un nombre diferente.'
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': False,
+                            'message': custom_message,
+                            'error_type': 'unique_constraint',
+                            'field': 'nombre'
+                        }, status=400)
+                    else:
+                        messages.error(request, custom_message)
+                else:
+                    if is_ajax:
+                        return JsonResponse({'success': False, 'message': str(e)}, status=400)
+                    messages.error(request, f'Error al añadir categoría: {e}')
             except Exception as e:
                 if is_ajax:
                     return JsonResponse({'success': False, 'message': str(e)}, status=400)
@@ -35,13 +51,28 @@ def gestionar_categorias(request):
                 nombre = request.POST.get('nombre', '').strip()
                 if not nombre:
                     raise ValueError('El nombre de la categoría no puede estar vacío o solo contener espacios.')
-                if Categoria.objects.filter(nombre__iexact=nombre).exclude(id=categoria_id).exists():
-                    raise ValueError('Ya existe una categoría con ese nombre.')
                 categoria.nombre = nombre
                 categoria.save()
                 if is_ajax:
                     return JsonResponse({'success': True, 'message': f'Categoría "{categoria.nombre}" actualizada correctamente.'})
                 messages.success(request, f'Categoría "{categoria.nombre}" actualizada correctamente.')
+            except IntegrityError as e:
+                error_message = str(e)
+                if 'UNIQUE constraint failed' in error_message and 'nombre' in error_message:
+                    custom_message = 'Ya existe una categoría con este nombre. Por favor, ingrese un nombre diferente.'
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': False,
+                            'message': custom_message,
+                            'error_type': 'unique_constraint',
+                            'field': 'nombre'
+                        }, status=400)
+                    else:
+                        messages.error(request, custom_message)
+                else:
+                    if is_ajax:
+                        return JsonResponse({'success': False, 'message': str(e)}, status=400)
+                    messages.error(request, f'Error al actualizar categoría: {e}')
             except Exception as e:
                 if is_ajax:
                     return JsonResponse({'success': False, 'message': str(e)}, status=400)
