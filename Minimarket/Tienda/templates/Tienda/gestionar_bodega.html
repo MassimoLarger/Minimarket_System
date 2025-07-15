@@ -289,8 +289,14 @@ function confirmarCrearSeccion() {
     const ancho = parseInt(document.getElementById('anchoNuevaSeccion').value);
     const alto = parseInt(document.getElementById('altoNuevaSeccion').value);
 
-    // Validar caracteres especiales en el nombre
+    // Validar que el nombre no sea solo espacios en blanco
     const nombreField = document.getElementById('nombreNuevaSeccion');
+    if (nombre.trim() === '') {
+        showValidationError('El nombre de la sección no puede estar vacío o contener solo espacios', nombreField);
+        return;
+    }
+
+    // Validar caracteres especiales en el nombre
     if (!validateSpecialCharacters(nombreField)) {
         return;
     }
@@ -581,8 +587,14 @@ function actualizarSeccionSeleccionada() {
     const pos_x = parseInt(seccionSeleccionada.style.left.replace('px', '')) || 0;
     const pos_y = parseInt(seccionSeleccionada.style.top.replace('px', '')) || 0;
 
-    // Validar caracteres especiales en el nombre
+    // Validar que el nombre no sea solo espacios en blanco
     const nombreField = document.getElementById('nombreSeccion');
+    if (nombre.trim() === '') {
+        showValidationError('El nombre de la sección no puede estar vacío o contener solo espacios', nombreField);
+        return;
+    }
+
+    // Validar caracteres especiales en el nombre
     if (!validateSpecialCharacters(nombreField)) {
         return;
     }
