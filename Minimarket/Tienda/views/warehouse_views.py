@@ -64,6 +64,20 @@ def validar_tamanio_seccion(ancho, alto, pos_x=None, pos_y=None):
        (alto >= bodega_alto and ancho > max_tam_relativo):
         raise ValueError("El estante es muy profundo considerando su largo. Reduce el otro lado.")
 
+# función para validar si una nueva sección se superpone con otra existente
+def check_section_collision(new_x, new_y, new_width, new_height, excluded_seccion_id=None):
+    existing_sections = SeccionBodega.objects.filter(activa=True)
+    if excluded_seccion_id:
+        existing_sections = existing_sections.exclude(id=excluded_seccion_id)
+
+    for seccion in existing_sections:
+        if (new_x < seccion.posicion_x + seccion.ancho and
+            new_x + new_width > seccion.posicion_x and
+            new_y < seccion.posicion_y + seccion.alto and
+            new_y + new_height > seccion.posicion_y):
+            raise ValueError(f"La nueva sección se superpone con la sección '{seccion.nombre}'.")
+    return True
+
 
 @login_required
 @user_passes_test(is_superuser, login_url='home')
@@ -71,18 +85,18 @@ def gestionar_bodega(request):
     if not request.session.get('warehouse_access_granted', False):
         messages.warning(request, 'Debes verificar tu contraseña para acceder a la gestión de bodega.')
         return redirect('home')
-    
+
     # Obtener todas las secciones de bodega
     secciones = SeccionBodega.objects.filter(activa=True)
     # Obtener lotes que no están asignados a ninguna sección
     lotes_asignados_ids = SeccionLote.objects.values_list('lote_id', flat=True)
     lotes_disponibles = Lote.objects.select_related('proveedor').exclude(id__in=lotes_asignados_ids)
-    
+
     context = {
         'secciones': secciones,
         'lotes_disponibles': lotes_disponibles,
     }
-    
+
     return render(request, 'Tienda/gestionar_bodega.html', context)
 
 @login_required
@@ -93,7 +107,7 @@ def crear_seccion(request):
     """Crear una nueva sección de bodega"""
     try:
         data = json.loads(request.body)
-        
+
         # Definir valores del tamaño de la sección
         ancho = int(data.get('ancho', 120))
         alto = int(data.get('alto', 80))
@@ -102,7 +116,10 @@ def crear_seccion(request):
 
         # Antes de crear la seccion se valida si el tamaño es adecuado para la bodega
         validar_tamanio_seccion(ancho,alto,pos_x,pos_y)
-        
+
+        # NEW: Check for collisions before creating
+        check_section_collision(pos_x, pos_y, ancho, alto)
+
         seccion = SeccionBodega.objects.create(
             nombre=data.get('nombre', 'Nueva Sección'),
             descripcion=data.get('descripcion', ''),
@@ -113,7 +130,7 @@ def crear_seccion(request):
             alto=alto,
             color=data.get('color', '#3498db')
         )
-        
+
         return JsonResponse({
             'success': True,
             'seccion': {
@@ -138,7 +155,7 @@ def obtener_secciones(request):
     try:
         secciones = SeccionBodega.objects.filter(activa=True)
         secciones_data = []
-        
+
         for seccion in secciones:
             secciones_data.append({
                 'id': seccion.id,
@@ -151,7 +168,7 @@ def obtener_secciones(request):
                 'alto': seccion.alto,
                 'color': seccion.color
             })
-        
+
         return JsonResponse({
             'success': True,
             'secciones': secciones_data
@@ -168,7 +185,7 @@ def actualizar_seccion(request, seccion_id):
     try:
         seccion = get_object_or_404(SeccionBodega, id=seccion_id)
         data = json.loads(request.body)
-        
+
         # Guardar valores anteriores para comparación
         valores_anteriores = {
             'nombre': seccion.nombre,
@@ -177,29 +194,28 @@ def actualizar_seccion(request, seccion_id):
             'posicion_x': seccion.posicion_x,
             'posicion_y': seccion.posicion_y
         }
-        
+
         seccion.nombre = data.get('nombre', seccion.nombre)
         seccion.descripcion = data.get('descripcion', seccion.descripcion)
         seccion.tipo_forma = data.get('tipo_forma', seccion.tipo_forma)
-        seccion.posicion_x = data.get('posicion_x', seccion.posicion_x)
-        seccion.posicion_y = data.get('posicion_y', seccion.posicion_y)
-        seccion.ancho = data.get('ancho', seccion.ancho)
-        seccion.alto = data.get('alto', seccion.alto)
+        seccion.posicion_x = int(data.get('posicion_x', seccion.posicion_x)) # Ensure int conversion
+        seccion.posicion_y = int(data.get('posicion_y', seccion.posicion_y)) # Ensure int conversion
+        seccion.ancho = int(data.get('ancho', seccion.ancho)) # Ensure int conversion
+        seccion.alto = int(data.get('alto', seccion.alto)) # Ensure int conversion
         seccion.color = data.get('color', seccion.color)
 
-        # Antes de crear la seccion se valida si el tamaño es adecuado para la bodega
+        # Antes de actualizar la seccion se valida si el tamaño es adecuado para la bodega
         validar_tamanio_seccion(seccion.ancho,seccion.alto,seccion.posicion_x,seccion.posicion_y)
 
-        # Manejo de errores al modificar el tamaño y ser demasiado grande en relación a la bodega
-        if seccion.ancho > 800 or seccion.alto > 580:
-            raise ValueError("El tamaño de la sección es demasiado grande")   
-        
+        # NEW: Check for collisions before updating, excluding the current section
+        check_section_collision(seccion.posicion_x, seccion.posicion_y, seccion.ancho, seccion.alto, excluded_seccion_id=seccion.id)
+
         # Forzar el guardado con update_fields específicos
         seccion.save(update_fields=['nombre', 'descripcion', 'tipo_forma', 'posicion_x', 'posicion_y', 'ancho', 'alto', 'color'])
-        
+
         # Verificar que los cambios se guardaron
         seccion.refresh_from_db()
-        
+
         # Verificar si realmente cambió algo
         cambios_detectados = {
             'nombre': valores_anteriores['nombre'] != seccion.nombre,
@@ -208,7 +224,7 @@ def actualizar_seccion(request, seccion_id):
             'posicion_x': valores_anteriores['posicion_x'] != seccion.posicion_x,
             'posicion_y': valores_anteriores['posicion_y'] != seccion.posicion_y
         }
-        
+
         return JsonResponse({
             'success': True,
             'debug_info': {
@@ -246,7 +262,7 @@ def eliminar_seccion(request, seccion_id):
     try:
         seccion = get_object_or_404(SeccionBodega, id=seccion_id)
         seccion.delete()
-        
+
         return JsonResponse({'success': True})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
@@ -262,25 +278,25 @@ def asignar_lote_seccion(request):
         seccion_id = data.get('seccion_id')
         lote_id = data.get('lote_id')
         observaciones = data.get('observaciones', '')
-        
+
         seccion = get_object_or_404(SeccionBodega, id=seccion_id)
         lote = get_object_or_404(Lote, id=lote_id)
-        
+
         # Verificar si el lote ya está asignado a otra sección
         asignacion_existente = SeccionLote.objects.filter(lote=lote).first()
         if asignacion_existente:
             return JsonResponse({
-                'success': False, 
+                'success': False,
                 'error': f'El lote ya está asignado a la sección: {asignacion_existente.seccion.nombre}'
             })
-        
+
         # Crear la asignación
         asignacion = SeccionLote.objects.create(
             seccion=seccion,
             lote=lote,
             observaciones=observaciones
         )
-        
+
         return JsonResponse({
             'success': True,
             'asignacion': {
@@ -302,7 +318,7 @@ def desasignar_lote_seccion(request, asignacion_id):
     try:
         asignacion = get_object_or_404(SeccionLote, id=asignacion_id)
         asignacion.delete()
-        
+
         return JsonResponse({'success': True})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
@@ -314,7 +330,7 @@ def obtener_lotes_seccion(request, seccion_id):
     try:
         seccion = get_object_or_404(SeccionBodega, id=seccion_id)
         asignaciones = SeccionLote.objects.filter(seccion=seccion)
-        
+
         lotes_data = []
         for asignacion in asignaciones:
             lotes_data.append({
@@ -326,7 +342,7 @@ def obtener_lotes_seccion(request, seccion_id):
                 'fecha_asignacion': asignacion.fecha_asignacion.strftime('%d/%m/%Y %H:%M'),
                 'observaciones': asignacion.observaciones or ''
             })
-        
+
         return JsonResponse({
             'success': True,
             'seccion_nombre': seccion.nombre,

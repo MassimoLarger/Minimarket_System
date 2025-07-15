@@ -11,14 +11,12 @@
     </div>
 
     <div class="row">
-        <!-- Panel de Control -->
         <div class="col-md-3">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-primary text-white">
                     <h5 class="mb-0"><i class="fas fa-tools me-2"></i>Panel de Control</h5>
                 </div>
                 <div class="card-body">
-                    <!-- Botones de Acción -->
                     <div class="mb-3">
                         <button class="btn btn-primary w-100 mb-2" onclick="crearSeccion()">
                             <i class="fas fa-plus me-1"></i> Crear Sección
@@ -31,7 +29,6 @@
                         </button>
                     </div>
 
-                    <!-- Información de Sección Seleccionada -->
                     <div id="infoSeccion" class="d-none">
                         <hr>
                         <h6><i class="fas fa-info-circle me-1"></i>Sección Seleccionada</h6>
@@ -67,13 +64,12 @@
                         </button>
                     </div>
 
-                    <!-- Lista de Lotes Disponibles -->
                     <hr>
                     <h6><i class="fas fa-boxes me-1"></i>Lotes Disponibles</h6>
                     <div id="lotesDisponibles" class="list-group" style="max-height: 200px; overflow-y: auto;">
                         {% for lote in lotes_disponibles %}
-                        <div class="list-group-item list-group-item-action p-2" 
-                             draggable="true" 
+                        <div class="list-group-item list-group-item-action p-2"
+                             draggable="true"
                              ondragstart="dragLote(event, {{ lote.id }}, '{{ lote.code_lote|escapejs }}')">
                             <small><strong>{{ lote.code_lote }}</strong><br>
                             {{ lote.proveedor.nombre_proveedor }}<br>
@@ -85,28 +81,24 @@
             </div>
         </div>
 
-        <!-- Mapa de Bodega -->
         <div class="col-md-9">
-            <div class="card border-0 shadow-sm">
+            <div class="card border-0 shadow-sm" style="width: 820px; height: 641px">
                 <div class="card-header bg-success text-white">
                     <h5 class="mb-0"><i class="fas fa-map me-2"></i>Mapa de Bodega</h5>
                 </div>
-                <div class="card-body p-0">
-                    <div id="mapaBodega" class="position-relative" 
-                         style="height: 600px; background: linear-gradient(45deg, #f8f9fa 25%, transparent 25%), linear-gradient(-45deg, #f8f9fa 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f8f9fa 75%), linear-gradient(-45deg, transparent 75%, #f8f9fa 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px; overflow: hidden;"
-                         ondrop="dropLote(event)" 
-                         ondragover="allowDrop(event)"
-                         onclick="deseleccionarSeccion()">
-                        
-                        <!-- Las secciones se cargarán aquí dinámicamente -->
-                    </div>
+                <div id="mapaBodega" class="position-relative border border-secondary"
+                    style="width: 820px; height: 641px; background: linear-gradient(45deg, #f8f9fa 25%, transparent 25%), linear-gradient(-45deg, #f8f9fa 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f8f9fa 75%), linear-gradient(-45deg, transparent 75%, #f8f9fa 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px; overflow: hidden;"
+                    ondrop="dropLote(event)"
+                    ondragover="allowDrop(event)"
+                    onclick="if(event.target === this) deseleccionarSeccion()">
+
+                        </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal para crear nueva sección -->
 <div class="modal fade" id="modalCrearSeccion" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -115,28 +107,28 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="formCrearSeccion">
+                <form id="formCrearSeccion" method="post" novalidate>
                     <div class="mb-3">
                         <label for="nombreNuevaSeccion" class="form-label">Nombre de la Sección <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="nombreNuevaSeccion" required>
+                        <input type="text" class="form-control" id="nombreNuevaSeccion" name="nombreNuevaSeccion" required maxlength="100">
                     </div>
                     <div class="mb-3">
                         <label for="descripcionNuevaSeccion" class="form-label">Descripción</label>
-                        <textarea class="form-control" id="descripcionNuevaSeccion" rows="3"></textarea>
+                        <textarea class="form-control" id="descripcionNuevaSeccion" name="descripcionNuevaSeccion" rows="3" maxlength="500"></textarea>
                     </div>
                     <div class="mb-3">
                         <label for="colorNuevaSeccion" class="form-label">Color</label>
-                        <input type="color" class="form-control form-control-color" id="colorNuevaSeccion" value="#3498db">
+                        <input type="color" class="form-control form-control-color" id="colorNuevaSeccion" name="colorNuevaSeccion" value="#3498db">
                     </div>
                     <div class="row">
                         <div class="col-6">
                             <label for="anchoNuevaSeccion" class="form-label">Ancho (px)</label>
-                            <input type="number" class="form-control" id="anchoNuevaSeccion" value="120" min="60" max="800">
+                            <input type="number" class="form-control" id="anchoNuevaSeccion" name="anchoNuevaSeccion" value="120" min="60" max="800" required>
                             <small class="text-muted">Máximo: 800px</small>
                         </div>
                         <div class="col-6">
                             <label for="altoNuevaSeccion" class="form-label">Alto (px)</label>
-                            <input type="number" class="form-control" id="altoNuevaSeccion" value="80" min="40" max="580">
+                            <input type="number" class="form-control" id="altoNuevaSeccion" name="altoNuevaSeccion" value="80" min="40" max="580" required>
                             <small class="text-muted">Máximo: 580px</small>
                         </div>
                     </div>
@@ -144,13 +136,12 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="confirmarCrearSeccion()">Crear Sección</button>
+                <button type="button" class="btn btn-primary" onclick="event.preventDefault(); confirmarCrearSeccion();">Crear Sección</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal para mostrar lotes de una sección -->
 <div class="modal fade" id="modalLotesSeccion" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -195,6 +186,13 @@
     resize: both;
 }
 
+/* Estilo para ver colisión en rojo */
+.seccion-bodega.colliding {
+    border-color: #ff0000 !important; /* Borde rojo */
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.7); /* Brillo */
+    background-color: rgba(255, 0, 0, 0.3) !important; /* Semi-transparencia */
+}
+
 .list-group-item[draggable="true"]:hover {
     background-color: #e3f2fd;
     cursor: grab;
@@ -212,21 +210,67 @@
 <script>
 let seccionSeleccionada = null;
 let modoEdicion = true; // Activar modo edición por defecto
-let isDragging = false;
-let isResizing = false;
+let seArrastra = false;
+let estaRedimensionando = false;
 let dragOffset = { x: 0, y: 0 };
 let resizeHandle = null;
-let initialSize = { width: 0, height: 0 };
-let initialMouse = { x: 0, y: 0 };
+let tamanoInicio = { width: 0, height: 0 };
+let mouseInicial = { x: 0, y: 0 };
+const BODEGA_MARGEN = 10;
 
-// Función para abrir modal de crear sección
+// Añadir variables para guardar la posición y tamaño original
+let posicionOriginal = { x: 0, y: 0, width: 0, height: 0 };
+let seccionModificada = false;
+
+// Arreglo global para almacenar los datos de todas las secciones para detección de colisiones 
+let DataDeTodasSecciones = [];
+
+// Función auxiliar para detección de colisiones 
+function VerificarColision(rect1, rect2) {
+    return rect1.x < rect2.x + rect2.width &&
+           rect1.x + rect1.width > rect2.x &&
+           rect1.y < rect2.y + rect2.height &&
+           rect1.y + rect1.height > rect2.y;
+}
+
+// Función para detectar colisones entre secciones
+function VerificarColisionesEntreSecciones(currentSectionElement, newX, newY, newWidth, newHeight) {
+    let colliding = false;
+    const currentSectionId = currentSectionElement ? currentSectionElement.dataset.id : null;
+    // Seleccionar todas las secciones que están actualmente en el DOM
+    const allSectionElements = document.querySelectorAll('.seccion-bodega'); 
+
+    for (const otherSectionElement of allSectionElements) {
+        // Ignorar la sección que se está moviendo o redimensionando actualmente
+        if (currentSectionId && otherSectionElement.dataset.id === currentSectionId) {
+            continue; 
+        }
+
+        const rect1 = { x: newX, y: newY, width: newWidth, height: newHeight };
+        const rect2 = {
+            // Obtener la posición y el tamaño actuales de la otra sección directamente del estilo del DOM
+            x: parseInt(otherSectionElement.style.left),
+            y: parseInt(otherSectionElement.style.top),
+            width: parseInt(otherSectionElement.style.width),
+            height: parseInt(otherSectionElement.style.height)
+        };
+
+        if (VerificarColision(rect1, rect2)) {
+            colliding = true;
+            break;
+        }
+    }
+    return colliding;
+}
+
+// Función para abrir el modal de crear sección
 function crearSeccion() {
     // Limpiar formulario
     document.getElementById('formCrearSeccion').reset();
     document.getElementById('colorNuevaSeccion').value = '#3498db';
     document.getElementById('anchoNuevaSeccion').value = '120';
     document.getElementById('altoNuevaSeccion').value = '80';
-    
+
     // Mostrar modal
     const modal = new bootstrap.Modal(document.getElementById('modalCrearSeccion'));
     modal.show();
@@ -234,71 +278,102 @@ function crearSeccion() {
 
 // Función para validar y crear la sección
 function confirmarCrearSeccion() {
+    // Validar formulario usando el sistema personalizado
+    if (!validateSpecificForm('formCrearSeccion')) {
+        return;
+    }
+
     const nombre = document.getElementById('nombreNuevaSeccion').value;
     const descripcion = document.getElementById('descripcionNuevaSeccion').value;
     const color = document.getElementById('colorNuevaSeccion').value;
     const ancho = parseInt(document.getElementById('anchoNuevaSeccion').value);
     const alto = parseInt(document.getElementById('altoNuevaSeccion').value);
-    
-    let isValid = true;
-    
-    // Validar nombre
-    if (!nombre || nombre.trim() === '') {
-        isValid = false;
-    }
-    
-    // Validar ancho
-    if (ancho <= 0 || isNaN(ancho)) {
-        isValid = false;
-    }
-    
-    // Validar alto
-    if (alto <= 0 || isNaN(alto)) {
-        isValid = false;
-    }
-    
-    // Validar que no exceda las dimensiones del mapa de bodega
-    if (ancho > 800) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Error de validación',
-            text: 'El ancho no puede exceder 800px (tamaño máximo del mapa de bodega)',
-            confirmButtonColor: '#e74c3c'
-        });
+
+    // Validar caracteres especiales en el nombre
+    const nombreField = document.getElementById('nombreNuevaSeccion');
+    if (!validateSpecialCharacters(nombreField)) {
         return;
     }
-    
-    if (alto > 580) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Error de validación',
-            text: 'El alto no puede exceder 580px (tamaño máximo del mapa de bodega)',
-            confirmButtonColor: '#e74c3c'
-        });
+
+    // Obtener las dimensiones de la bodega
+    const mapaBodega = document.getElementById('mapaBodega');
+    const bodega_ancho = mapaBodega.offsetWidth;
+    const bodega_alto = mapaBodega.offsetHeight;
+
+     // Validar que la sección no sea más grande que el área usable de la bodega (con márgenes)
+    if (ancho > (bodega_ancho - 2 * BODEGA_MARGEN)) {
+        const anchoField = document.getElementById('anchoNuevaSeccion');
+        showValidationError(`El ancho no puede exceder ${bodega_ancho - 2 * BODEGA_MARGEN}px (tamaño máximo usable de la bodega)`, anchoField);
         return;
     }
-    
-    if (!isValid) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Error de validación',
-            text: 'Por favor corrige los errores en el formulario.',
-            confirmButtonColor: '#e74c3c'
-        });
+
+    if (alto > (bodega_alto - 2 * BODEGA_MARGEN)) {
+        const altoField = document.getElementById('altoNuevaSeccion');
+        showValidationError(`El alto no puede exceder ${bodega_alto - 2 * BODEGA_MARGEN}px (tamaño máximo usable de la bodega)`, altoField);
         return;
     }
-    
+
+    let newX = BODEGA_MARGEN; // Iniciar búsqueda desde el margen
+    let newY = BODEGA_MARGEN; // Iniciar búsqueda desde el margen
+    const placementAttempts = 100;
+    const internalSpacing = 10; // Espacio entre secciones al intentar colocarlas en la cuadrícula
+
+    let foundEmptySpot = false;
+    for (let i = 0; i < placementAttempts; i++) {
+        // Calcular el área usable para la colocación, restando el doble del margen de bodega
+        const usableWidth = bodega_ancho - (2 * BODEGA_MARGEN);
+        const usableHeight = bodega_alto - (2 * BODEGA_MARGEN);
+
+        const cols = Math.floor(usableWidth / (ancho + internalSpacing));
+        const rows = Math.floor(usableHeight / (alto + internalSpacing));
+
+        if (cols <= 0 || rows <= 0) {
+            break; // No hay espacio suficiente para la sección con el margen y el espaciado
+        }
+
+        const colIndex = i % cols;
+        const rowIndex = Math.floor(i / cols) % rows;
+
+        // Proponer una posición dentro del área usable, empezando desde el margen
+        let proposedX = BODEGA_MARGEN + colIndex * (ancho + internalSpacing);
+        let proposedY = BODEGA_MARGEN + rowIndex * (alto + internalSpacing);
+
+        // Asegurarse de que la posición propuesta más el tamaño esté dentro de los límites del margen
+        if (proposedX + ancho > bodega_ancho - BODEGA_MARGEN) {
+            proposedX = bodega_ancho - ancho - BODEGA_MARGEN;
+        }
+        if (proposedY + alto > bodega_alto - BODEGA_MARGEN) {
+            proposedY = bodega_alto - alto - BODEGA_MARGEN;
+        }
+
+        const proposedRect = { x: proposedX, y: proposedY, width: ancho, height: alto };
+
+        // Comprobar colisión con otras secciones (se pasa null porque es una sección nueva)
+        if (!VerificarColisionesEntreSecciones(null, proposedRect.x, proposedRect.y, proposedRect.width, proposedRect.height)) {
+            foundEmptySpot = true;
+            newX = proposedRect.x;
+            newY = proposedRect.y;
+            break;
+        }
+    }
+
+    if (!foundEmptySpot) {
+        const nombreField = document.getElementById('nombreNuevaSeccion');
+        showValidationError('No se encontró un espacio vacío para la nueva sección dentro de los márgenes de la bodega. Intenta ajustar las secciones existentes o prueba un tamaño diferente.', nombreField);
+        return;
+    }
+
     const data = {
         nombre: nombre.trim(),
         descripcion: descripcion.trim(),
         tipo_forma: 'rectangulo',
-        posicion_x: 50,
-        posicion_y: 50,
+        posicion_x: newX,
+        posicion_y: newY,
         ancho: ancho,
         alto: alto,
         color: color
     };
-    
+
     fetch('{% url "crear_seccion" %}', {
         method: 'POST',
         headers: {
@@ -308,8 +383,17 @@ function confirmarCrearSeccion() {
         body: JSON.stringify(data)
     })
     .then(response => {
+        // Comprobar si la respuesta es correcta (estado 200-299)
         if (!response.ok) {
-            throw new Error('Error en la respuesta del servidor');
+            // Intentar analizar el mensaje de error JSON si está disponible, de lo contrario usar el texto de respuesta
+            return response.json().then(errorData => {
+                throw new Error(errorData.error || 'Error desconocido del servidor');
+            }).catch(() => {
+                // Si el análisis como JSON falla, podría no ser una respuesta JSON (ej. página de error HTML)
+                return response.text().then(text => {
+                    throw new Error(`Error en la respuesta del servidor (Status: ${response.status}): ${text.substring(0, 200)}...`);
+                });
+            });
         }
         return response.json();
     })
@@ -318,10 +402,10 @@ function confirmarCrearSeccion() {
             // Cerrar modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('modalCrearSeccion'));
             modal.hide();
-            
+
             // Recargar secciones dinámicamente
             cargarSecciones();
-            
+
             // Mostrar mensaje de éxito con SweetAlert2
             Swal.fire({
                 icon: 'success',
@@ -332,72 +416,83 @@ function confirmarCrearSeccion() {
                 showConfirmButton: false
             });
         } else {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Error al crear la sección: ' + (result.error || 'Error desconocido'),
-                confirmButtonColor: '#e74c3c'
-            });
+            const nombreField = document.getElementById('nombreNuevaSeccion');
+            const errorMessage = result.error || 'Error desconocido';
+            
+            // Verificar si es un error de unique constraint
+            if (isUniqueConstraintError(errorMessage)) {
+                showUniqueConstraintError('seccionbodega_nombre', nombreField);
+            } else {
+                showValidationError('Error al crear la sección: ' + errorMessage, nombreField);
+            }
         }
     })
     .catch(error => {
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'Error al crear la sección: ' + error.message,
-            confirmButtonColor: '#e74c3c'
-        });
+        console.error('Fetch error:', error); 
+        const nombreField = document.getElementById('nombreNuevaSeccion');
+        showValidationError('No se pudo conectar con el servidor o hubo un error inesperado: ' + error.message, nombreField);
     });
 }
 
-// Función para seleccionar una sección
+// Funció para seleccionar una sección
 function seleccionarSeccion(event, elemento) {
     event.stopPropagation();
-    
-    // Deseleccionar sección anterior
+
+    // Deseleccionar sección anterior sin restaurar su posición
     if (seccionSeleccionada) {
         seccionSeleccionada.classList.remove('selected');
+        seccionSeleccionada.classList.remove('colliding');
     }
-    
+
     // Seleccionar nueva sección
     seccionSeleccionada = elemento;
     elemento.classList.add('selected');
-    
+
     // Mostrar información en el panel
     actualizarPanelInformacion();
 }
 
-// Función para actualizar solo el panel de información sin guardar
-function actualizarPanelInformacion() {
+// función para restaurar la posición original de una sección
+function restaurarPosicionOriginal() {
     if (!seccionSeleccionada) return;
     
+    // Restaurar posición y tamaño originales
+    seccionSeleccionada.style.left = posicionOriginal.x + 'px';
+    seccionSeleccionada.style.top = posicionOriginal.y + 'px';
+    seccionSeleccionada.style.width = posicionOriginal.width + 'px';
+    seccionSeleccionada.style.height = posicionOriginal.height + 'px';
+    
+    // Quitar clase de colisión si existe
+    seccionSeleccionada.classList.remove('colliding');
+    
+    // Reiniciar el estado de modificación
+    seccionModificada = false;
+}
+
+// Actualizar información en el panel
+function actualizarPanelInformacion() {
+    if (!seccionSeleccionada) return;
+
     document.getElementById('infoSeccion').classList.remove('d-none');
     document.getElementById('nombreSeccion').value = seccionSeleccionada.dataset.nombre;
     document.getElementById('descripcionSeccion').value = seccionSeleccionada.dataset.descripcion;
     document.getElementById('colorSeccion').value = seccionSeleccionada.dataset.color;
     document.getElementById('anchoSeccion').value = parseInt(seccionSeleccionada.style.width) || 100;
     document.getElementById('altoSeccion').value = parseInt(seccionSeleccionada.style.height) || 100;
-    
-    // Panel de información actualizado
+
 }
 
-// Función para deseleccionar sección
+// Función para deseleccionar una sección
 function deseleccionarSeccion() {
     if (seccionSeleccionada) {
         seccionSeleccionada.classList.remove('selected');
+        seccionSeleccionada.classList.remove('colliding');
         seccionSeleccionada = null;
         document.getElementById('infoSeccion').classList.add('d-none');
     }
 }
 
-// Función para actualizar nombre en tiempo real - DESHABILITADA para evitar errores
-// El nombre solo se actualiza al guardar los cambios
-function actualizarNombreEnTiempoReal() {
-    // Función deshabilitada - el nombre se actualiza solo al guardar
-    return;
-}
-
-// Función para actualizar color en tiempo real
+// Función para actualizar el color en tiempo real
 function actualizarColorEnTiempoReal() {
     if (!seccionSeleccionada) return;
     const nuevoColor = document.getElementById('colorSeccion').value;
@@ -408,18 +503,60 @@ function actualizarColorEnTiempoReal() {
 // Función para actualizar tamaño en tiempo real
 function actualizarTamanoEnTiempoReal() {
     if (!seccionSeleccionada) return;
-    const nuevoAncho = parseInt(document.getElementById('anchoSeccion').value);
-    const nuevoAlto = parseInt(document.getElementById('altoSeccion').value);
-    
-    if (nuevoAncho >= 50 && nuevoAncho <= 800) {
+
+    const inputAncho = document.getElementById('anchoSeccion');
+    const inputAlto = document.getElementById('altoSeccion');
+
+    let nuevoAncho = parseInt(inputAncho.value);
+    let nuevoAlto = parseInt(inputAlto.value);
+
+    // Obtener la posición actual de la sección seleccionada
+    const actualX= parseInt(seccionSeleccionada.style.left);
+    const actualY = parseInt(seccionSeleccionada.style.top);
+
+    // Obtener las dimensiones de la bodega
+    const mapaBodega = document.getElementById('mapaBodega');
+    const bodega_ancho = mapaBodega.offsetWidth;
+    const bodega_alto = mapaBodega.offsetHeight;
+
+    // Prevenir que exceda los límites de la bodega con margen 
+    // Ancho y alto máximos permitidos, considerando la posición actual y el margen de la bodega
+    const AnchoMaximoPermitido = bodega_ancho - actualX- BODEGA_MARGEN;
+    const AltoMaximoPermitido = bodega_alto - actualY - BODEGA_MARGEN;
+
+    // Ajustar el nuevo ancho/alto para que no exceda los límites permitidos ni los mínimos del input
+    nuevoAncho = Math.max(parseInt(inputAncho.min), Math.min(nuevoAncho, AnchoMaximoPermitido));
+    nuevoAlto = Math.max(parseInt(inputAlto.min), Math.min(nuevoAlto, AltoMaximoPermitido));
+
+    let puedeAplicarAncho = true;
+    let puedeAplicarAlto = true;
+
+    // Obtener dimensiones visuales actuales para la comprobación de colisión si una dimensión no cambia
+    const AnchoVisualActual = parseInt(seccionSeleccionada.style.width);
+    const AltoVisualActual = parseInt(seccionSeleccionada.style.height);
+
+    // Comprobación de colisión con otras secciones
+    const estaColisionando = VerificarColisionesEntreSecciones(seccionSeleccionada, actualX, actualY, nuevoAncho, nuevoAlto);
+
+    if (!estaColisionando) {
         seccionSeleccionada.style.width = nuevoAncho + 'px';
-    }
-    if (nuevoAlto >= 50 && nuevoAlto <= 580) {
         seccionSeleccionada.style.height = nuevoAlto + 'px';
+        seccionSeleccionada.classList.remove('colliding');
+    } else {
+        seccionSeleccionada.classList.add('colliding');
+    }
+
+    // Actualizar los valores de los inputs si fueron ajustados
+    // Esto asegura que el número en el formulario refleje el tamaño real aplicado
+    if (parseInt(inputAncho.value) !== nuevoAncho) {
+        inputAncho.value = nuevoAncho;
+    }
+    if (parseInt(inputAlto.value) !== nuevoAlto) {
+        inputAlto.value = nuevoAlto;
     }
 }
 
-// Función para actualizar sección seleccionada
+// Actualizar la sección seleccionada en tiempo real
 function actualizarSeccionSeleccionada() {
     if (!seccionSeleccionada) {
         Swal.fire({
@@ -430,22 +567,36 @@ function actualizarSeccionSeleccionada() {
         });
         return;
     }
-    
-    // Las validaciones se manejan por el sistema de validación personalizado
+
+    // Evitar guardar si la sección está en estado de colisión
+    if (seccionSeleccionada.classList.contains('colliding')) {
+        const nombreField = document.getElementById('nombreSeccion');
+        showValidationError('La sección no se puede guardar porque está colisionando con otra sección.', nombreField);
+        return;
+    }
+
     const nombre = document.getElementById('nombreSeccion').value;
     const ancho = parseInt(document.getElementById('anchoSeccion').value);
     const alto = parseInt(document.getElementById('altoSeccion').value);
-    
+    const pos_x = parseInt(seccionSeleccionada.style.left.replace('px', '')) || 0;
+    const pos_y = parseInt(seccionSeleccionada.style.top.replace('px', '')) || 0;
+
+    // Validar caracteres especiales en el nombre
+    const nombreField = document.getElementById('nombreSeccion');
+    if (!validateSpecialCharacters(nombreField)) {
+        return;
+    }
+
     const data = {
         nombre: nombre.trim(),
         descripcion: document.getElementById('descripcionSeccion').value.trim(),
         color: document.getElementById('colorSeccion').value,
         ancho: ancho,
         alto: alto,
-        posicion_x: parseInt(seccionSeleccionada.style.left.replace('px', '')) || 0,
-        posicion_y: parseInt(seccionSeleccionada.style.top.replace('px', '')) || 0
+        posicion_x: pos_x,
+        posicion_y: pos_y
     };
-    
+
     fetch(`{% url 'actualizar_seccion' 0 %}`.replace('0', seccionSeleccionada.dataset.id), {
         method: 'POST',
         headers: {
@@ -456,7 +607,7 @@ function actualizarSeccionSeleccionada() {
     })
     .then(response => {
         if (!response.ok) {
-            throw new Error('Error en la respuesta del servidor');
+            return response.json().then(err => { throw new Error(err.error || 'Error en la respuesta del servidor'); });
         }
         return response.json();
     })
@@ -474,6 +625,28 @@ function actualizarSeccionSeleccionada() {
                 seccionSeleccionada.dataset.color = data.color;
                 // Actualizar color de fondo
                 seccionSeleccionada.style.backgroundColor = data.color;
+
+                // Actualizar DatosDeTodasSecciones despues de guardar
+                const updatedIndex = DatosDeTodasSecciones.findIndex(s => s.id == seccionSeleccionada.dataset.id);
+                if (updatedIndex !== -1) {
+                    DatosDeTodasSecciones[updatedIndex] = {
+                        id: parseInt(seccionSeleccionada.dataset.id),
+                        x: pos_x,
+                        y: pos_y,
+                        width: ancho,
+                        height: alto
+                    };
+                }
+                
+                // Reiniciar el estado de modificación después de guardar
+                seccionModificada = false;
+                
+                // Actualizar la posición original con los nuevos valores guardados
+                posicionOriginal.x = pos_x;
+                posicionOriginal.y = pos_y;
+                posicionOriginal.width = ancho;
+                posicionOriginal.height = alto;
+
                 Swal.fire({
                     icon: 'success',
                     title: '¡Éxito!',
@@ -483,44 +656,35 @@ function actualizarSeccionSeleccionada() {
                     showConfirmButton: false
                 });
             } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Error: La sección no se pudo actualizar',
-                    confirmButtonColor: '#e74c3c'
-                });
+                const nombreField = document.getElementById('nombreSeccion');
+                showValidationError('Error: La sección no se pudo actualizar', nombreField);
             }
         } else {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Error al actualizar la sección: ' + (result.error || 'Error desconocido'),
-                confirmButtonColor: '#e74c3c'
-            });
+            const nombreField = document.getElementById('nombreSeccion');
+            const errorMessage = result.error || 'Error desconocido';
+            
+            // Verificar si es un error de unique constraint
+            if (isUniqueConstraintError(errorMessage)) {
+                showUniqueConstraintError('seccionbodega_nombre', nombreField);
+            } else {
+                showValidationError('Error al actualizar la sección: ' + errorMessage, nombreField);
+            }
         }
     })
     .catch(error => {
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'Error al actualizar la sección: ' + error.message,
-            confirmButtonColor: '#e74c3c'
-        });
+        const nombreField = document.getElementById('nombreSeccion');
+        showValidationError('No se pudo conectar con el servidor o hubo un error inesperado: ' + error.message, nombreField);
     });
 }
 
-// Función para eliminar sección seleccionada
+// Función para eliminar una sección seleccionada
 function eliminarSeccionSeleccionada() {
     if (!seccionSeleccionada) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Atención',
-            text: 'Selecciona una sección para eliminar',
-            confirmButtonColor: '#f39c12'
-        });
+        const mapaBodega = document.getElementById('mapaBodega');
+        showValidationError('Selecciona una sección para eliminar', mapaBodega);
         return;
     }
-    
+
     Swal.fire({
         title: '¿Estás seguro?',
         text: '¿Quieres eliminar esta sección?',
@@ -546,36 +710,40 @@ function eliminarSeccionSeleccionada() {
         })
         .then(result => {
             if (result.success) {
+                DatosDeTodasSecciones = DatosDeTodasSecciones.filter(s => s.id != seccionSeleccionada.dataset.id);
+
                 seccionSeleccionada.remove();
                 deseleccionarSeccion();
-            } else {
+                
+                // Mostrar mensaje de éxito
                 Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Error al eliminar la sección: ' + (result.error || 'Error desconocido'),
-                    confirmButtonColor: '#e74c3c'
+                    icon: 'success',
+                    title: '¡Éxito!',
+                    text: 'Sección eliminada correctamente',
+                    confirmButtonColor: '#28a745',
+                    timer: 2000,
+                    showConfirmButton: false
                 });
+            } else {
+                const mapaBodega = document.getElementById('mapaBodega');
+                showValidationError('Error al eliminar la sección: ' + (result.error || 'Error desconocido'), mapaBodega);
             }
         })
         .catch(error => {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Error al eliminar la sección: ' + error.message,
-                confirmButtonColor: '#e74c3c'
-            });
+            const mapaBodega = document.getElementById('mapaBodega');
+            showValidationError('Error al eliminar la sección: ' + error.message, mapaBodega);
         });
         }
     });
 }
 
-// Función para toggle modo edición
+// Función para cambiar el modo de edición
 function toggleModoEdicion() {
     modoEdicion = !modoEdicion;
     const texto = document.getElementById('modoEdicionText');
     texto.textContent = modoEdicion ? 'Desactivar Edición' : 'Activar Edición';
-    
-    // Habilitar/deshabilitar arrastre
+
+    // Activar o desactivar arrastre según el modo
     const secciones = document.querySelectorAll('.seccion-bodega');
     secciones.forEach(seccion => {
         if (modoEdicion) {
@@ -584,9 +752,13 @@ function toggleModoEdicion() {
             deshabilitarArrastre(seccion);
         }
     });
+    // Deseleccionar sección si se desactiva el modo de edición
+    if (!modoEdicion && seccionSeleccionada) {
+        deseleccionarSeccion();
+    }
 }
 
-// Funciones de arrastre
+// Funciones de agarre y redimensionamiento
 function habilitarArrastre(elemento) {
     elemento.addEventListener('mousedown', iniciarArrastre);
 }
@@ -597,24 +769,31 @@ function deshabilitarArrastre(elemento) {
 
 function iniciarArrastre(e) {
     if (!modoEdicion) return;
-    
-    // Verificar si se hizo clic en un handle de redimensionamiento
+
+    // Verifica si el clic fue en el handle de redimensionamiento
     if (e.target.classList.contains('resize-handle')) {
         iniciarRedimensionamiento(e);
         return;
     }
-    
-    isDragging = true;
-    
-    // Deseleccionar sección anterior
-    if (seccionSeleccionada) {
-        seccionSeleccionada.classList.remove('selected');
+
+    seArrastra = true;
+
+    // Deseleccionar la sección anterior si existe
+    if (seccionSeleccionada && seccionSeleccionada !== this && seccionModificada) {
+        restaurarPosicionOriginal();
     }
-    
-    // Seleccionar la sección que se está arrastrando
+
+    // Seleccionar la sección actual
     seccionSeleccionada = this;
     this.classList.add('selected');
-    
+
+    // Guardar la posición original antes de mover (siempre guardar al iniciar)
+    posicionOriginal.x = parseInt(this.style.left);
+    posicionOriginal.y = parseInt(this.style.top);
+    posicionOriginal.width = parseInt(this.style.width);
+    posicionOriginal.height = parseInt(this.style.height);
+    seccionModificada = true;
+
     // Mostrar información en el panel
     document.getElementById('infoSeccion').classList.remove('d-none');
     document.getElementById('nombreSeccion').value = this.dataset.nombre;
@@ -622,50 +801,67 @@ function iniciarArrastre(e) {
     document.getElementById('colorSeccion').value = this.dataset.color;
     document.getElementById('anchoSeccion').value = parseInt(this.style.width) || 100;
     document.getElementById('altoSeccion').value = parseInt(this.style.height) || 100;
-    
+
     const rect = this.getBoundingClientRect();
     const mapRect = document.getElementById('mapaBodega').getBoundingClientRect();
-    
+
     dragOffset.x = e.clientX - rect.left;
     dragOffset.y = e.clientY - rect.top;
-    
+
     document.addEventListener('mousemove', arrastrar);
     document.addEventListener('mouseup', terminarArrastre);
-    
+
     e.preventDefault();
 }
 
+// Funcion para redimensionar
 function arrastrar(e) {
-    if (!isDragging || !seccionSeleccionada) return;
-    
+    if (!seArrastra || !seccionSeleccionada) return;
+
     const mapRect = document.getElementById('mapaBodega').getBoundingClientRect();
-    const newX = e.clientX - mapRect.left - dragOffset.x;
-    const newY = e.clientY - mapRect.top - dragOffset.y;
-    
-    // Limitar dentro del mapa
-    const maxX = mapRect.width - parseInt(seccionSeleccionada.style.width);
-    const maxY = mapRect.height - parseInt(seccionSeleccionada.style.height);
-    
-    seccionSeleccionada.style.left = Math.max(0, Math.min(newX, maxX)) + 'px';
-    seccionSeleccionada.style.top = Math.max(0, Math.min(newY, maxY)) + 'px';
-    
-    // Actualizar información del panel si está visible
+    const newX_unclamped = e.clientX - mapRect.left - dragOffset.x;
+    const newY_unclamped = e.clientY - mapRect.top - dragOffset.y;
+
+    const anchoActual = parseInt(seccionSeleccionada.style.width);
+    const altoActual = parseInt(seccionSeleccionada.style.height);
+
+    const minX = BODEGA_MARGEN;
+    const minY = BODEGA_MARGEN;
+    const maxX = mapRect.width - anchoActual - BODEGA_MARGEN;
+    const maxY = mapRect.height - altoActual - BODEGA_MARGEN;
+
+    const newX = Math.max(minX, Math.min(newX_unclamped, maxX));
+    const newY = Math.max(minY, Math.min(newY_unclamped, maxY));
+
+    const estaColisionando = VerificarColisionesEntreSecciones(seccionSeleccionada, newX, newY, anchoActual, altoActual);
+
+    if (!estaColisionando) {
+        seccionSeleccionada.style.left = newX + 'px';
+        seccionSeleccionada.style.top = newY + 'px';
+        seccionSeleccionada.classList.remove('colliding');
+    } else {
+        seccionSeleccionada.classList.add('colliding');
+    }
+
+    // Actualizar datos en el panel
     if (!document.getElementById('infoSeccion').classList.contains('d-none')) {
-        document.getElementById('nombreSeccion').value = seccionSeleccionada.dataset.nombre;
-        document.getElementById('descripcionSeccion').value = seccionSeleccionada.dataset.descripcion;
-        document.getElementById('colorSeccion').value = seccionSeleccionada.dataset.color;
-        document.getElementById('anchoSeccion').value = parseInt(seccionSeleccionada.style.width) || 100;
-        document.getElementById('altoSeccion').value = parseInt(seccionSeleccionada.style.height) || 100;
+        document.getElementById('anchoSeccion').value = anchoActual;
+        document.getElementById('altoSeccion').value = altoActual;
     }
 }
 
 function terminarArrastre() {
-    // Solo actualizar el panel de información, no guardar automáticamente
-    if ((isDragging || isResizing) && seccionSeleccionada) {
-        actualizarPanelInformacion();
+    // Solo actualizar en el panel, no guardar
+    if ((seArrastra || estaRedimensionando) && seccionSeleccionada) {
+        if (seccionSeleccionada.classList.contains('colliding')) {
+        }
+        actualizarPanelInformacion(); // 
+        // Mantener el estado de modificación como true para que se restaure
+        // solo cuando se seleccione otra sección
+        seccionModificada = true;
     }
-    isDragging = false;
-    isResizing = false;
+    seArrastra = false;
+    estaRedimensionando = false;
     resizeHandle = null;
     document.removeEventListener('mousemove', arrastrar);
     document.removeEventListener('mousemove', redimensionar);
@@ -675,73 +871,91 @@ function terminarArrastre() {
 // Funciones de redimensionamiento
 function iniciarRedimensionamiento(e) {
     if (!modoEdicion) return;
-    
-    isResizing = true;
+
+    estaRedimensionando = true;
     resizeHandle = e.target;
-    
+
     const seccion = e.target.closest('.seccion-bodega');
     if (seccion) {
+        // deseleccionar la sección anterior y volver a la posición original
+        if (seccionSeleccionada && seccionSeleccionada !== seccion && seccionModificada) {
+            restaurarPosicionOriginal();
+        }
+
         seccionSeleccionada = seccion;
         seccion.classList.add('selected');
-        
-        initialSize.width = parseInt(seccion.style.width);
-        initialSize.height = parseInt(seccion.style.height);
-        initialMouse.x = e.clientX;
-        initialMouse.y = e.clientY;
-        
+
+        // Guardar la posición y tamaño original antes de redimensionar (siempre guardar al iniciar)
+        posicionOriginal.x = parseInt(seccion.style.left);
+        posicionOriginal.y = parseInt(seccion.style.top);
+        posicionOriginal.width = parseInt(seccion.style.width);
+        posicionOriginal.height = parseInt(seccion.style.height);
+        seccionModificada = true;
+
+        tamanoInicio.width = parseInt(seccion.style.width);
+        tamanoInicio.height = parseInt(seccion.style.height);
+        mouseInicial.x = e.clientX;
+        mouseInicial.y = e.clientY;
+
         document.addEventListener('mousemove', redimensionar);
         document.addEventListener('mouseup', terminarArrastre);
     }
-    
+
     e.preventDefault();
     e.stopPropagation();
 }
-
+// Funcion para redimensionar
 function redimensionar(e) {
-    if (!isResizing || !seccionSeleccionada || !resizeHandle) return;
-    
-    const deltaX = e.clientX - initialMouse.x;
-    const deltaY = e.clientY - initialMouse.y;
-    
-    let newWidth = initialSize.width;
-    let newHeight = initialSize.height;
-    
+    if (!estaRedimensionando || !seccionSeleccionada || !resizeHandle) return;
+
+    const deltaX = e.clientX - mouseInicial.x;
+    const deltaY = e.clientY - mouseInicial.y;
+
+    let newWidth = tamanoInicio.width;
+    let newHeight = tamanoInicio.height;
+
     if (resizeHandle.classList.contains('resize-se')) {
-        // Redimensionar desde esquina inferior derecha
-        newWidth = Math.max(60, initialSize.width + deltaX);
-        newHeight = Math.max(40, initialSize.height + deltaY);
+        // Redimensionar desde la esquina inferior derecha
+        newWidth = Math.max(60, tamanoInicio.width + deltaX);
+        newHeight = Math.max(40, tamanoInicio.height + deltaY);
     } else if (resizeHandle.classList.contains('resize-s')) {
-        // Redimensionar solo altura desde abajo
-        newHeight = Math.max(40, initialSize.height + deltaY);
+        // Redimensionar solo la altura desde la parte inferior
+        newHeight = Math.max(40, tamanoInicio.height + deltaY);
     } else if (resizeHandle.classList.contains('resize-e')) {
-        // Redimensionar solo ancho desde la derecha
-        newWidth = Math.max(60, initialSize.width + deltaX);
+        // Redimensionar solo el ancho desde la derecha
+        newWidth = Math.max(60, tamanoInicio.width + deltaX);
     }
-    
-    // Verificar límites del mapa
+
+    // Límites de la bodega con margen 
     const mapRect = document.getElementById('mapaBodega').getBoundingClientRect();
-    const seccionRect = seccionSeleccionada.getBoundingClientRect();
     const mapLeft = parseInt(seccionSeleccionada.style.left);
     const mapTop = parseInt(seccionSeleccionada.style.top);
-    
-    if (mapLeft + newWidth > mapRect.width) {
-        newWidth = mapRect.width - mapLeft;
+
+    // Ancho/alto máximo permitido, considerando el margen derecho/inferior
+    const AnchoMaximoPermitido = mapRect.width - mapLeft - BODEGA_MARGEN;
+    const AltoMaximoPermitido = mapRect.height - mapTop - BODEGA_MARGEN;
+
+    newWidth = Math.min(newWidth, AnchoMaximoPermitido);
+    newHeight = Math.min(newHeight, AltoMaximoPermitido);
+
+    const estaColisionando = VerificarColisionesEntreSecciones(seccionSeleccionada, mapLeft, mapTop, newWidth, newHeight);
+
+    if (!estaColisionando) {
+        seccionSeleccionada.style.width = newWidth + 'px';
+        seccionSeleccionada.style.height = newHeight + 'px';
+        seccionSeleccionada.classList.remove('colliding');
+    } else {
+        seccionSeleccionada.classList.add('colliding');
     }
-    if (mapTop + newHeight > mapRect.height) {
-        newHeight = mapRect.height - mapTop;
-    }
-    
-    seccionSeleccionada.style.width = newWidth + 'px';
-    seccionSeleccionada.style.height = newHeight + 'px';
-    
-    // Actualizar información del panel si está visible
+
     if (!document.getElementById('infoSeccion').classList.contains('d-none')) {
-        document.getElementById('anchoSeccion').value = newWidth;
-        document.getElementById('altoSeccion').value = newHeight;
+        document.getElementById('anchoSeccion').value = parseInt(seccionSeleccionada.style.width); // Actualizar con el visual actual
+        document.getElementById('altoSeccion').value = parseInt(seccionSeleccionada.style.height); // Actualizar con el visual actual
     }
 }
 
-// Funciones de drag and drop para lotes
+
+// Arrastrar y soltar lote
 function dragLote(event, loteId, loteCodigo) {
     event.dataTransfer.setData('loteId', loteId);
     event.dataTransfer.setData('loteCodigo', loteCodigo);
@@ -753,16 +967,16 @@ function allowDrop(event) {
 
 function dropLote(event) {
     event.preventDefault();
-    // Si se suelta en el mapa pero no en una sección, no hacer nada
+    // Si el lote cae en otro lugar que no sea una seccion, no hacer nada
 }
 
 function dropLoteEnSeccion(event, seccionId) {
     event.preventDefault();
     event.stopPropagation();
-    
+
     const loteId = event.dataTransfer.getData('loteId');
     const loteCodigo = event.dataTransfer.getData('loteCodigo');
-    
+
     if (loteId) {
         Swal.fire({
             title: '¿Asignar lote?',
@@ -779,7 +993,7 @@ function dropLoteEnSeccion(event, seccionId) {
             if (result.isConfirmed) {
                 const observaciones = result.value || '';
 
-        
+
         fetch('{% url "asignar_lote_seccion" %}', {
             method: 'POST',
             headers: {
@@ -832,13 +1046,13 @@ function dropLoteEnSeccion(event, seccionId) {
     }
 }
 
-// Función para mostrar lotes de una sección
+// Función para mostrar los lotes de una sección
 function mostrarLotesSeccion() {
     if (!seccionSeleccionada) return;
-    
+
     const seccionId = seccionSeleccionada.dataset.id;
     const nombreSeccion = seccionSeleccionada.dataset.nombre;
-    
+
     fetch(`{% url 'obtener_lotes_seccion' 0 %}`.replace('0', seccionId), {
         method: 'GET',
         headers: {
@@ -854,13 +1068,13 @@ function mostrarLotesSeccion() {
     .then(result => {
         if (result.success) {
             document.getElementById('nombreSeccionModal').textContent = nombreSeccion;
-            
+
             let html = '';
             if (result.lotes.length === 0) {
                 html = '<p class="text-muted">No hay lotes asignados a esta sección.</p>';
             } else {
                 html = '<div class="table-responsive"><table class="table table-striped"><thead><tr><th>Código Lote</th><th>Proveedor</th><th>Fecha Registro</th><th>Fecha Asignación</th><th>Observaciones</th><th>Acciones</th></tr></thead><tbody>';
-                
+
                 result.lotes.forEach(lote => {
                     html += `<tr>
                         <td><strong>${lote.lote_codigo}</strong></td>
@@ -871,10 +1085,10 @@ function mostrarLotesSeccion() {
                         <td><button class="btn btn-sm btn-danger" onclick="desasignarLote(${lote.asignacion_id})"><i class="fas fa-unlink"></i></button></td>
                     </tr>`;
                 });
-                
+
                 html += '</tbody></table></div>';
             }
-            
+
             document.getElementById('listadoLotesSeccion').innerHTML = html;
             const modal = new bootstrap.Modal(document.getElementById('modalLotesSeccion'));
             modal.show();
@@ -897,7 +1111,7 @@ function mostrarLotesSeccion() {
     });
 }
 
-// Función para desasignar lote
+// Funcción para desasignar un lote
 function desasignarLote(asignacionId) {
     Swal.fire({
         title: '¿Estás seguro?',
@@ -932,8 +1146,8 @@ function desasignarLote(asignacionId) {
                     timer: 2000,
                     showConfirmButton: false
                 }).then(() => {
-                    mostrarLotesSeccion(); // Refrescar la lista
-                    setTimeout(() => location.reload(), 1000); // Refrescar la página para actualizar la lista de lotes disponibles
+                    mostrarLotesSeccion(); 
+                    setTimeout(() => location.reload(), 1000); 
                 });
             } else {
                 Swal.fire({
@@ -956,7 +1170,7 @@ function desasignarLote(asignacionId) {
     });
 }
 
-// Función para obtener cookie CSRF
+// Función para obtener CSRF cookie
 function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
@@ -972,7 +1186,7 @@ function getCookie(name) {
     return cookieValue;
 }
 
-// Función para cargar secciones dinámicamente desde la base de datos
+// Función para cargar las secciones desde el servidor
 function cargarSecciones() {
     fetch('{% url "obtener_secciones" %}', {
         method: 'GET',
@@ -989,14 +1203,24 @@ function cargarSecciones() {
     .then(result => {
         if (result.success) {
             const mapaBodega = document.getElementById('mapaBodega');
-            
-            // Limpiar secciones existentes
+
+            // Borrar secciones existentes
             const seccionesExistentes = mapaBodega.querySelectorAll('.seccion-bodega');
             seccionesExistentes.forEach(seccion => seccion.remove());
-            
-            // Agregar cada sección una por una
+
+            // Borrar todas las secciones existentes 
+            DatosDeTodasSecciones = [];
+
+            // Añadir cada seccion una a una
             result.secciones.forEach(seccionData => {
                 crearElementoSeccion(seccionData);
+                DatosDeTodasSecciones.push({
+                    id: seccionData.id,
+                    x: seccionData.posicion_x,
+                    y: seccionData.posicion_y,
+                    width: seccionData.ancho,
+                    height: seccionData.alto
+                });
             });
         } else {
             Swal.fire({
@@ -1017,10 +1241,10 @@ function cargarSecciones() {
     });
 }
 
-// Función para crear un elemento de sección en el DOM
+// Funcion para crear un elemento de sección
 function crearElementoSeccion(seccionData) {
     const mapaBodega = document.getElementById('mapaBodega');
-    
+
     const seccionElement = document.createElement('div');
     seccionElement.className = 'seccion-bodega';
     seccionElement.dataset.id = seccionData.id;
@@ -1028,7 +1252,7 @@ function crearElementoSeccion(seccionData) {
     seccionElement.dataset.descripcion = seccionData.descripcion;
     seccionElement.dataset.tipo = seccionData.tipo_forma;
     seccionElement.dataset.color = seccionData.color;
-    
+
     seccionElement.style.cssText = `
         position: absolute;
         left: ${seccionData.posicion_x}px;
@@ -1051,62 +1275,59 @@ function crearElementoSeccion(seccionData) {
         overflow: hidden;
         min-width: 60px;
         min-height: 40px;
+        z-index: 1; /* Ensure sections are above the grid but below handles */
     `;
-    
+
     seccionElement.onclick = function(event) {
         seleccionarSeccion(event, this);
     };
-    
+
     seccionElement.ondrop = function(event) {
         dropLoteEnSeccion(event, seccionData.id);
     };
-    
+
     seccionElement.ondragover = allowDrop;
-    
-    // Crear el contenido de la sección
+
     const span = document.createElement('span');
     span.textContent = seccionData.nombre;
     seccionElement.appendChild(span);
-    
-    // Crear handles de redimensionamiento
+
     const handleSE = document.createElement('div');
     handleSE.className = 'resize-handle resize-se';
-    handleSE.style.cssText = 'position: absolute; bottom: -2px; right: -2px; width: 12px; height: 12px; background: #e74c3c; cursor: se-resize; border-radius: 0 0 4px 0;';
+    handleSE.style.cssText = 'position: absolute; bottom: -6px; right: -6px; width: 12px; height: 12px; background: #e74c3c; cursor: se-resize; border-radius: 0 0 4px 0; z-index: 10;'; // Z-index higher
     seccionElement.appendChild(handleSE);
-    
+
     const handleS = document.createElement('div');
     handleS.className = 'resize-handle resize-s';
-    handleS.style.cssText = 'position: absolute; bottom: -2px; left: 50%; transform: translateX(-50%); width: 12px; height: 6px; background: #e74c3c; cursor: s-resize;';
+    handleS.style.cssText = 'position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); width: 12px; height: 6px; background: #e74c3c; cursor: s-resize; z-index: 10;'; // Z-index higher
     seccionElement.appendChild(handleS);
-    
+
     const handleE = document.createElement('div');
     handleE.className = 'resize-handle resize-e';
-    handleE.style.cssText = 'position: absolute; right: -2px; top: 50%; transform: translateY(-50%); width: 6px; height: 12px; background: #e74c3c; cursor: e-resize;';
+    handleE.style.cssText = 'position: absolute; right: -6px; top: 50%; transform: translateY(-50%); width: 6px; height: 12px; background: #e74c3c; cursor: e-resize; z-index: 10;'; // Z-index higher
     seccionElement.appendChild(handleE);
-    
-    // Agregar al mapa
+
+    // añadir a la bodega
     mapaBodega.appendChild(seccionElement);
-    
-    // Habilitar funcionalidades de arrastre
+
+    // Habilitar arrastre de secciones
     habilitarArrastre(seccionElement);
 }
 
-// Inicialización cuando se carga el DOM
 document.addEventListener('DOMContentLoaded', function() {
-    // Cargar secciones dinámicamente desde la base de datos
     cargarSecciones();
-    
-    // Actualizar el texto del botón de modo edición
+
     const texto = document.getElementById('modoEdicionText');
     if (texto) {
         texto.textContent = modoEdicion ? 'Desactivar Edición' : 'Activar Edición';
     }
-    
-    // Verificar que Bootstrap esté disponible
     if (typeof bootstrap === 'undefined') {
-        // Bootstrap no está disponible
     }
 });
 </script>
 
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/custom-validation.js' %}"></script>
 {% endblock %}
